@@ -6,7 +6,7 @@
   "updatedAt": "2026-08-31",
   "profile": "instance/velvet-factory.json",
   "core": {
-    "github": "nocturney/velvet-factory-headquarters-os",
+    "github": "nocturney/velvetos-core",
     "displayName": "VelvetOS Core",
     "vendorPath": "vendor/velvetos-core",
     "attach": "scripts/attach-core.sh"

@@ -3,7 +3,7 @@
 PRODUCT: VelvetOS
 ROLE: instance (frontend office)
 INSTANCE: VelvetOS — Velvet Factory
-CORE: vendor/velvetos-core → nocturney/velvet-factory-headquarters-os
+CORE: vendor/velvetos-core → nocturney/velvetos-core
 FORMULA: Agent = Model + Harness (from Core)
 
 This file is the **guide for this business office**. Core laws still win for send / ₪ / Insights.

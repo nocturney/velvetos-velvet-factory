@@ -2,7 +2,7 @@
 # Attach VelvetOS Core into vendor/velvetos-core (subtree or clone).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CORE_REMOTE="${VELVETOS_CORE_REMOTE:-https://github.com/nocturney/velvet-factory-headquarters-os.git}"
+CORE_REMOTE="${VELVETOS_CORE_REMOTE:-https://github.com/nocturney/velvetos-core.git}"
 CORE_REF="${VELVETOS_CORE_REF:-main}"
 DEST="$ROOT/vendor/velvetos-core"
 
