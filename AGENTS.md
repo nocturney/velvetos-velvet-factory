@@ -12,7 +12,7 @@ This file is the **guide for this business office**. Core laws still win for sen
 
 - Pull packs and modules from **VelvetOS Core** (`vendor/velvetos-core`). Do not duplicate the pack tree.
 - Studio facts: `constitution/STUDIO.md` + `instance/velvet-factory.json`.
-- HQ sends Gmail and Instagram via tools (`vendor/velvetos-core/constitution/SEND.md`).
+- HQ sends per `vendor/velvetos-core/constitution/SEND.md`. **Grok Bot = primary manager**; quota empty → HQ fully replaces including live IG publish (`constitution/GROK.md`).
 - Never invent ₪ or Insights. CTA: WhatsApp `050-2517000` / איסוף שדרות — not «שלחו DM».
 - Pipeline: פנייה → שיחה → הצעה → הדפסה → איסוף.
 - After catalog edits in core: run core `python3 scripts/check-all.py` from the core checkout / vendor.

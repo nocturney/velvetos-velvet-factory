@@ -18,7 +18,7 @@
     "Run ./scripts/attach-core.sh before relying on packs/modules.",
     "Desk is a curated overlay on The Agency roster. 273 specialists stay installed; only these sit on the studio desk.",
     "Product is VelvetOS; this repo is the Velvet Factory instance. Core modules are always loaded under packages/velvetos/modules/. Other businesses = separate instance repos (REPOS.md).",
-    "HQ sends Gmail and Instagram via tools (constitution/SEND.md). Do not wait for Christian or Grok Bot. Auto-DM and boost stay forbidden. Customer WhatsApp stays human 050-2517000.",
+    "Do not wait for Christian or Grok Bot for processing — Cursor + orchestra handle delegated work. Grok Bot is primary manager for send; quota empty = HQ fully replaces including live IG publish.",
     "Do not invent ₪ prices or Insights. Write X ₪ when no verified amount exists.",
     "Do not commit secrets, medical files, or personal Drive folders.",
     "Research overlay @vfdsh maps awesome-dsh-plugin patterns onto existing packs. Do not install DeepSeek Harness.",
@@ -97,11 +97,28 @@
     "canva": {
       "status": "ready",
       "namespace": "Canva",
-      "useWhen": "Instagram post/story/reel cover/carousel for @velvets_cloud",
+      "useWhen": "Instagram post/story/reel/carousel for @velvets_cloud — design, export, publish",
       "mcp": "https://mcp.canva.com/mcp",
       "verifiedAt": "2026-08-31",
-      "note": "Cloud Agent search-designs returned DAGoYmCu4c4. Instagram send: vfigos/SEND.md (tool or Canva+Drive+Gmail failover).",
-      "failover": "needsAuth → packages/vfcanva/studio/render.py → Superdesign. Say Canva לא מחובר."
+      "publishIg": "wire-required — live/direct to @velvets_cloud per vfigos/SEND.md",
+      "note": "Normal: Grok publishes. Quota failover: HQ publishes via Canva export + Publish MCP.",
+      "failover": "needsAuth → render.py → Superdesign → Drive+Gmail"
+    },
+    "instagram": {
+      "status": "wire-required",
+      "account": "@velvets_cloud",
+      "namespace": "Instagram-Publish-MCP",
+      "mode": "publish-live-direct",
+      "useWhen": "Quota failover full replacement of Grok; also when Grok delegates publish",
+      "allowed": [
+        "publish_feed_post",
+        "publish_carousel",
+        "publish_reel",
+        "publish_story"
+      ],
+      "forbidden": ["boost", "auto_dm", "delete_without_lead"],
+      "rule": "Normal send: Grok Bot (#נשלח-בידי-Grok). Quota empty: HQ (#נשלח-מ-HQ). Wire in Cursor Team MCP — secrets outside git. docs/MCP-FIT.md",
+      "failover": "Canva export → Drive create_file + Gmail send_message → #ממתין-ל-כלי-IG"
     },
     "web": {
       "status": "ready",
