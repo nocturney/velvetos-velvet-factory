@@ -1,0 +1,5 @@
+github: nocturney/velvet-factory-headquarters-os
+displayName: VelvetOS Core
+role: backend-kernel
+attach: scripts/attach-core.sh
+vendorPath: vendor/velvetos-core

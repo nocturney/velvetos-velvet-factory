@@ -1,0 +1,150 @@
+{
+  "id": "velvet-factory",
+  "displayName": "VelvetOS — Velvet Factory",
+  "displayNameHe": "VelvetOS — ולווט פקטורי",
+  "businessName": "Velvet Factory",
+  "vertical": "maker",
+  "preset": "maker-print",
+  "what": "3D-print studio",
+  "where": "Sderot",
+  "locale": "he-IL",
+  "language": "he",
+  "timezone": "Asia/Jerusalem",
+  "modulesEnabled": [
+    "kernel-laws",
+    "pipeline-canonical",
+    "channels-instagram",
+    "fulfill-pickup",
+    "production-print",
+    "compliance-base",
+    "compliance-maker",
+    "sales-inquiry",
+    "social-growth",
+    "ops-ledger"
+  ],
+  "pipeline": {
+    "stages": [
+      {
+        "id": "lead",
+        "label": "פנייה",
+        "packHints": [
+          "vfconvert"
+        ]
+      },
+      {
+        "id": "talk",
+        "label": "שיחה",
+        "packHints": [
+          "vfconvert",
+          "vfsales"
+        ]
+      },
+      {
+        "id": "offer",
+        "label": "הצעה",
+        "packHints": [
+          "vfsales",
+          "vfcopy",
+          "vfcost"
+        ]
+      },
+      {
+        "id": "fulfill",
+        "label": "הדפסה",
+        "packHints": [
+          "vfprod",
+          "vfsku",
+          "vlicense"
+        ]
+      },
+      {
+        "id": "close",
+        "label": "איסוף",
+        "packHints": [
+          "vfsales",
+          "vfgrowth"
+        ]
+      }
+    ]
+  },
+  "fulfillment": {
+    "mode": "pickup",
+    "nationalShipping": false,
+    "notes": "איסוף שדרות בלבד. אין משלוח ארצי מ־HQ."
+  },
+  "production": {
+    "kind": "print",
+    "notes": "רצפת הדפסה · סלייסר · רישיון קובץ. אין הדפסה מ־HQ."
+  },
+  "channels": {
+    "instagram": [
+      {
+        "id": "ig-primary",
+        "handle": "@velvets_cloud",
+        "purpose": "studio",
+        "primary": true,
+        "language": "he"
+      }
+    ]
+  },
+  "cta": {
+    "primary": "WhatsApp 050-2517000 / איסוף שדרות",
+    "whatsapp": "050-2517000",
+    "forbidden": [
+      "שלחו DM",
+      "send DM",
+      "DM us"
+    ]
+  },
+  "close": "human WhatsApp + Invoice4U",
+  "compliance": {
+    "noInventedPrices": true,
+    "noInventedInsights": true,
+    "noAutoDm": true,
+    "noBoostWithoutLead": true,
+    "hqSendViaTools": true,
+    "denyPersonalMedicalLegalFoldersUnlessNamed": true,
+    "contentAllowed": "floor proof + Hebrew product copy",
+    "extraLocks": [
+      "pickup-sderot-only",
+      "b2b-logo-qr-napkins-locked",
+      "no-tiktok-without-lead",
+      "no-ads-without-lead"
+    ]
+  },
+  "seats": [
+    {
+      "id": "lead",
+      "he": "ראש צוות",
+      "roleNote": "בריף, החלטות, ₪"
+    },
+    {
+      "id": "studio",
+      "he": "סטודיו",
+      "roleNote": "פנייה, הצעה, קופי"
+    },
+    {
+      "id": "growth",
+      "he": "צמיחה",
+      "roleNote": "תוכן, כריכות, לוח IG"
+    },
+    {
+      "id": "ops",
+      "he": "תפעול",
+      "roleNote": "עלות, ספרים, B2B נעול"
+    },
+    {
+      "id": "production",
+      "he": "ייצור",
+      "roleNote": "הדפסה, מק״ט, רישיון"
+    }
+  ],
+  "locks": [
+    "human-close-whatsapp",
+    "pickup-only",
+    "b2b-locked",
+    "public-commercial-files-only"
+  ],
+  "packPrefix": "vf",
+  "notes": "Live Velvet Factory office frontend. Pulls modules/packs from VelvetOS Core."
+}

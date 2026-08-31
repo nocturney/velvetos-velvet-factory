@@ -1,0 +1,16 @@
+{
+  "product": "VelvetOS",
+  "role": "instance",
+  "displayName": "VelvetOS — Velvet Factory",
+  "instanceId": "velvet-factory",
+  "updatedAt": "2026-08-31",
+  "profile": "instance/velvet-factory.json",
+  "core": {
+    "github": "nocturney/velvet-factory-headquarters-os",
+    "displayName": "VelvetOS Core",
+    "vendorPath": "vendor/velvetos-core",
+    "attach": "scripts/attach-core.sh"
+  },
+  "metaphor": "frontend office for one business; backend kernel is VelvetOS Core",
+  "rule": "Enable modules from core. Do not fork packs into a parallel tree. Bind live tools (Gmail/Calendar/Canva/IG) here."
+}
