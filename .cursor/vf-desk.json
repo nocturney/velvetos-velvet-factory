@@ -69,7 +69,7 @@
       "queries": {
         "inboxToday": "in:inbox newer_than:1d",
         "bills": "label:חשבונות OR subject:(חשבונית OR Invoice4U OR קבלה)",
-        "githubHq": "from:notifications@github.com velvet-factory-headquarters-os"
+        "githubHq": "from:notifications@github.com velvetos-core"
       },
       "labelHints": {
         "bills": "[Gmail]/חשבונות"

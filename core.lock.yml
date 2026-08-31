@@ -1,4 +1,4 @@
-github: nocturney/velvet-factory-headquarters-os
+github: nocturney/velvetos-core
 displayName: VelvetOS Core
 role: backend-kernel
 attach: scripts/attach-core.sh

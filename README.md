@@ -1,7 +1,7 @@
 # VelvetOS — Velvet Factory
 
 פרונט (office frontend) לעסק ההדפסות התלת־ממד.  
-הבאקאנד / הליבה: **VelvetOS Core** (`nocturney/velvet-factory-headquarters-os`).
+הבאקאנד / הליבה: **VelvetOS Core** (`nocturney/velvetos-core`).
 
 ## מודל
 
