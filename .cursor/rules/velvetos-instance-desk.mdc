@@ -7,7 +7,7 @@ alwaysApply: true
 
 You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/velvetos-core` (VelvetOS Core).
 
-- Attach core: `./scripts/attach-core.sh`
+- Attach core: `./scripts/attach-core.sh` (Cloud Agent: auto via `.cursor/environment.json` `install`)
 - Studio facts: `constitution/STUDIO.md`
 - Profile: `instance/velvet-factory.json`
 - HQ sends Gmail/IG via tools (`vendor/velvetos-core/constitution/SEND.md`)
