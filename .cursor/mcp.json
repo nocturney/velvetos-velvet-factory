@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "canva": {
+      "type": "http",
+      "url": "https://mcp.canva.com/mcp"
+    },
+    "threedaistudio": {
+      "url": "https://mcp.3daistudio.com/mcp"
+    }
+  }
+}
