@@ -19,4 +19,4 @@ else
   echo "OK cloned VelvetOS Core -> $DEST"
 fi
 
-"$ROOT/scripts/verify-core.sh" focused
+bash "$ROOT/scripts/verify-core.sh" focused
