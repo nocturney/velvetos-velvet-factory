@@ -1,0 +1,30 @@
+name: Core Runtime Smoke
+
+on:
+  pull_request:
+    paths:
+      - "scripts/attach-core.sh"
+      - "scripts/verify-core.sh"
+      - ".cursor/environment.json"
+      - ".github/workflows/core-runtime-smoke.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/attach-core.sh"
+      - "scripts/verify-core.sh"
+      - ".cursor/environment.json"
+      - ".github/workflows/core-runtime-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  verify-attached-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      - name: Attach and verify current Core main
+        run: bash scripts/attach-core.sh
+
+      - name: Full Core verification
+        run: bash scripts/verify-core.sh --full
