@@ -3,7 +3,7 @@
   "role": "instance",
   "displayName": "VelvetOS — Velvet Factory",
   "instanceId": "velvet-factory",
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-10",
   "profile": "instance/velvet-factory.json",
   "core": {
     "github": "nocturney/velvetos-core",
@@ -12,5 +12,5 @@
     "attach": "scripts/attach-core.sh"
   },
   "metaphor": "frontend office for one business; backend kernel is VelvetOS Core",
-  "rule": "Enable modules from core. Do not fork packs into a parallel tree. Bind live tools (Gmail/Calendar/Canva/IG) here."
+  "rule": "Enable modules from core. Do not fork packs into a parallel tree. Bind live tools (Gmail/Calendar/Canva/IG) here. Creative Autopilot policy is instance-scoped in the profile."
 }
