@@ -32,47 +32,11 @@
   ],
   "pipeline": {
     "stages": [
-      {
-        "id": "lead",
-        "label": "פנייה",
-        "packHints": [
-          "vfconvert"
-        ]
-      },
-      {
-        "id": "talk",
-        "label": "שיחה",
-        "packHints": [
-          "vfconvert",
-          "vfsales"
-        ]
-      },
-      {
-        "id": "offer",
-        "label": "הצעה",
-        "packHints": [
-          "vfsales",
-          "vfcopy",
-          "vfcost"
-        ]
-      },
-      {
-        "id": "fulfill",
-        "label": "הדפסה",
-        "packHints": [
-          "vfprod",
-          "vfsku",
-          "vlicense"
-        ]
-      },
-      {
-        "id": "close",
-        "label": "איסוף",
-        "packHints": [
-          "vfsales",
-          "vfgrowth"
-        ]
-      }
+      {"id": "lead", "label": "פנייה", "packHints": ["vfconvert"]},
+      {"id": "talk", "label": "שיחה", "packHints": ["vfconvert", "vfsales"]},
+      {"id": "offer", "label": "הצעה", "packHints": ["vfsales", "vfcopy", "vfcost"]},
+      {"id": "fulfill", "label": "הדפסה", "packHints": ["vfprod", "vfsku", "vlicense"]},
+      {"id": "close", "label": "איסוף", "packHints": ["vfsales", "vfgrowth"]}
     ]
   },
   "fulfillment": {
@@ -86,25 +50,24 @@
   },
   "channels": {
     "instagram": [
-      {
-        "id": "ig-primary",
-        "handle": "@velvets_cloud",
-        "purpose": "studio",
-        "primary": true,
-        "language": "he"
-      }
+      {"id": "ig-primary", "handle": "@velvets_cloud", "purpose": "studio", "primary": true, "language": "he"}
     ]
   },
   "cta": {
-    "primary": "WhatsApp 050-2517000 / איסוף שדרות",
+    "primary": "לפרטים והזמנות — שלחו לנו הודעה כאן באינסטגרם",
+    "channel": "instagram-message",
+    "handle": "@velvets_cloud",
+    "pickup": "איסוף שדרות",
     "whatsapp": "050-2517000",
-    "forbidden": [
-      "שלחו DM",
-      "send DM",
-      "DM us"
-    ]
+    "businessContact": {
+      "whatsapp": "050-2517000",
+      "status": "disabled-for-public-cta",
+      "note": "BUSINESS_CONTACT_RECORD only — not PUBLIC_CURRENT_CTA"
+    },
+    "forbiddenPublic": ["050-2517000", "וואטסאפ", "WhatsApp", "wa.me", "דברו איתנו בוואטסאפ", "הזמנות בוואטסאפ"],
+    "forbidden": ["send_dm", "auto-dm", "050-2517000", "וואטסאפ", "WhatsApp", "wa.me"]
   },
-  "close": "human WhatsApp + Invoice4U",
+  "close": "instagram-message public; human WhatsApp record disabled for outreach",
   "compliance": {
     "noInventedPrices": true,
     "noInventedInsights": true,
@@ -113,46 +76,53 @@
     "hqSendViaTools": true,
     "denyPersonalMedicalLegalFoldersUnlessNamed": true,
     "contentAllowed": "floor proof + Hebrew product copy",
-    "extraLocks": [
-      "pickup-sderot-only",
-      "b2b-logo-qr-napkins-locked",
-      "no-tiktok-without-lead",
-      "no-ads-without-lead"
-    ]
+    "extraLocks": ["pickup-sderot-only", "b2b-line-locked", "no-tiktok-without-lead", "no-ads-without-lead"]
   },
   "seats": [
-    {
-      "id": "lead",
-      "he": "ראש צוות",
-      "roleNote": "בריף, החלטות, ₪"
-    },
-    {
-      "id": "studio",
-      "he": "סטודיו",
-      "roleNote": "פנייה, הצעה, קופי"
-    },
-    {
-      "id": "growth",
-      "he": "צמיחה",
-      "roleNote": "תוכן, כריכות, לוח IG"
-    },
-    {
-      "id": "ops",
-      "he": "תפעול",
-      "roleNote": "עלות, ספרים, B2B נעול"
-    },
-    {
-      "id": "production",
-      "he": "ייצור",
-      "roleNote": "הדפסה, מק״ט, רישיון"
-    }
+    {"id": "lead", "he": "ראש צוות", "roleNote": "בריף, החלטות, ₪"},
+    {"id": "studio", "he": "סטודיו", "roleNote": "פנייה, הצעה, קופי"},
+    {"id": "growth", "he": "צמיחה", "roleNote": "תוכן, כריכות, לוח IG"},
+    {"id": "ops", "he": "תפעול", "roleNote": "עלות, ספרים, B2B נעול"},
+    {"id": "production", "he": "ייצור", "roleNote": "הדפסה, מק״ט, רישיון"}
   ],
-  "locks": [
-    "human-close-whatsapp",
-    "pickup-only",
-    "b2b-locked",
-    "public-commercial-files-only"
-  ],
+  "mcpBind": {
+    "studiomcphub": {"enabled": true, "use": ["search_tools", "remove_background", "resize_image"], "skip": ["print_ready", "convert_color_profile", "x402", "nft"]},
+    "mcp-gsheets": {"enabled": true, "when": "desktop-credentials", "bindings": "office/ledger/bindings.json"},
+    "whatsapp": {"enabled": true, "when": "desktop-lharries", "mode": "search-and-draft", "send": false},
+    "instagram": {"enabled": true, "when": "codespace-stdio-or-remote-when-ready", "publish": true, "dm": false, "stories": true, "canonicalMcp": "adelaidasofia/instagram-mcp", "connect": "packages/vfigos/CONNECT-IG.md"}
+  },
+  "creativeAutonomy": {
+    "enabled": true,
+    "mode": "exception-only",
+    "creativeDecisionAuthority": "office",
+    "autoRepairQuality": true,
+    "ownerSurface": "human_required_only",
+    "visualAuthority": "packages/vfom/VISUAL-OS.md",
+    "orchestration": "packages/vfom/CREATIVE-AUTOPILOT.md",
+    "mediaCatalog": "packages/vfmedia/catalog.json",
+    "publish": {
+      "standingAuthorization": true,
+      "scope": ["organic-instagram-routine"],
+      "allowedFormats": ["reel", "story", "carousel", "post"],
+      "calendarAuthority": "packages/vfgrowth/CALENDAR.md",
+      "requirePreflight": true,
+      "requireKnownRights": true,
+      "requireToolReceipt": true,
+      "requireLiveVerification": true
+    },
+    "humanRequired": [
+      "physical-footage-or-staging",
+      "rights-or-privacy-unclear",
+      "sale-ils-or-price-change",
+      "purchase-or-spend",
+      "boost-or-ads",
+      "customer-whatsapp-send",
+      "print-from-hq",
+      "irreversible-destructive-action",
+      "hard-blocker-after-failover"
+    ]
+  },
+  "locks": ["human-close-whatsapp", "pickup-only", "b2b-locked", "public-commercial-files-only"],
   "packPrefix": "vf",
-  "notes": "Live Velvet Factory office frontend. Pulls modules/packs from VelvetOS Core."
+  "notes": "Live Velvet Factory office frontend. Pulls modules/packs from VelvetOS Core. Creative Autopilot is standing-authorized for routine organic Instagram only."
 }
