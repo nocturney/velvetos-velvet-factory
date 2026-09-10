@@ -26,7 +26,7 @@ Use Core:
 - `packages/vfom/CREATIVE-AUTOPILOT.md`
 - `packages/vfom/VISUAL-OS.md`
 - `packages/vfom/EDIT-DIRECTOR.md`
-- `.cursor/skills/vf-creative-autopilot/SKILL.md`
+- `.cursor/skills/vf-content-sprint/SKILL.md`
 
 Routine concept/Hook/shot ordering/edit/caption/cover/QA/slot choices are autonomous. Ordinary quality failures are repaired internally.
 
