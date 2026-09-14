@@ -24,7 +24,7 @@ For **any** request involving Instagram content, social content, image selection
 4. `vendor/velvetos-core/.cursor/skills/velvet-brand-guardian/SKILL.md`
 5. `instance/velvet-factory.json`
 
-Canonical approved visual reference: Canva asset `MAHVJjCCKQA`, SHA-256 `707edde3f4d43cffea090bf90ed2418c160db2f8d90d104e4920b44697a014c0`.
+Canonical approved visual reference: Canva asset `MAHVL7PKpvE`, SHA-256 `df41281b44e2c1ac99a1cb0c9f084ec926c30774f61468fc8988f59c5a136897`.
 
 This is a **bootstrap invariant, not optional inspiration**. A new conversation with no prior chat context must still inherit it. If the standard cannot be loaded or its configured identity does not match, stop the creative branch as `visual_standard_unavailable`; do not silently fall back to generic 3D-print, stock, template or model-default aesthetics.
 

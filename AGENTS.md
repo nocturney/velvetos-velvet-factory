@@ -26,7 +26,7 @@ For every Instagram/feed visual workflow, read and obey Core:
 - `packages/vfom/VISUAL-DNA.json`
 - `.cursor/skills/velvet-brand-guardian/SKILL.md`
 
-Canonical approved Canva reference asset: `MAHVJjCCKQA` (`Velvet Factory · APPROVED GRID VISUAL STANDARD · 2026-09-14`). Public reference: `https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg`. Portable cross-system prompt: `packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md`.
+Canonical approved Canva reference asset: `MAHVL7PKpvE` (`Velvet Factory · APPROVED GRID VISUAL STANDARD · 2026-09-14`). Public reference: `https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg`. Portable cross-system prompt: `packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md`.
 
 The approved grid standard is the required visual-language and quality floor for feed posts, Reel covers, carousel pages, Story stills, service/editorial tiles and grid planning. It is **not** permission to alter real products: Product Truth, real source evidence, constitution and rights always win.
 
