@@ -26,7 +26,7 @@ For every Instagram/feed visual workflow, read and obey Core:
 - `packages/vfom/VISUAL-DNA.json`
 - `.cursor/skills/velvet-brand-guardian/SKILL.md`
 
-Canonical approved Canva reference asset: `MAHVJjCCKQA` (`Velvet Factory · APPROVED GRID VISUAL STANDARD · 2026-09-14`).
+Canonical approved Canva reference asset: `MAHVJjCCKQA` (`Velvet Factory · APPROVED GRID VISUAL STANDARD · 2026-09-14`). Public reference: `https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg`. Portable cross-system prompt: `packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md`.
 
 The approved grid standard is the required visual-language and quality floor for feed posts, Reel covers, carousel pages, Story stills, service/editorial tiles and grid planning. It is **not** permission to alter real products: Product Truth, real source evidence, constitution and rights always win.
 
@@ -34,7 +34,7 @@ Required direction: product-first, real photography as truth anchor, `Retouch th
 
 Hard rejects include placeholders presented as finals, generic icons replacing product photography, synthetic replacement/drift of a real product, fake customer/shelf scenes, stock filler, text-heavy generic template cards and rejected G004 Canva design `DAHUaelaug0` as source/style/layout/canonical edit/publish asset.
 
-Any tool or agent that selects media, retouches, designs in Canva, builds covers/carousels/stories, plans the grid, runs Brand Guardian/QA or prepares publish preflight must apply this standard before output can PASS.
+Any tool or agent that selects media, retouches, designs in Canva, builds covers/carousels/stories, plans the grid, runs Brand Guardian/QA or prepares publish preflight must apply this standard before output can PASS. This is a cold-start invariant: a fresh conversation with no previous chat context must still load and verify the standard before creative work; missing or mismatched authority fails closed instead of falling back to generic model aesthetics.
 
 ## CREATIVE AUTOPILOT
 

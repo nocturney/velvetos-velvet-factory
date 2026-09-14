@@ -1,9 +1,9 @@
 {
   "name": "velvetos-velvet-factory-desk",
   "title": "VelvetOS — Velvet Factory (frontend instance)",
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-14",
   "sourceAgency": ".cursor/agency-agents.json",
-  "alwaysOnRule": ".cursor/rules/velvet-factory-desk.mdc",
+  "alwaysOnRule": ".cursor/rules/velvetos-instance-desk.mdc",
   "product": "VelvetOS",
   "instanceId": "velvet-factory",
   "displayName": "VelvetOS — Velvet Factory",
@@ -13,8 +13,20 @@
     "profile": "instance/velvet-factory.json",
     "docs": "README.md"
   },
+  "ownerApprovedVisualStandard": {
+    "required": true,
+    "document": "vendor/velvetos-core/packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md",
+    "portablePrompt": "vendor/velvetos-core/packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md",
+    "referenceAsset": "vendor/velvetos-core/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg",
+    "publicReferenceUrl": "https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg",
+    "canvaAssetId": "MAHVJjCCKQA",
+    "artifactSha256": "707edde3f4d43cffea090bf90ed2418c160db2f8d90d104e4920b44697a014c0",
+    "coldStartGate": "fail_closed",
+    "rule": "Load and verify before any visual-content concept/generation; no generic fallback. Product Truth outranks style."
+  },
   "notes": [
     "This repo is the Velvet Factory FRONTEND office. Backend kernel = VelvetOS Core (vendor/velvetos-core).",
+    "Cold-start visual rule: every social/image/Canva/feed/cover/carousel/Story visual branch loads the owner-approved standard before creative work. Missing/mismatch = fail closed; never fall back to generic model aesthetics.",
     "Run ./scripts/attach-core.sh before relying on packs/modules.",
     "Desk is a curated overlay on The Agency roster. 273 specialists stay installed; only these sit on the studio desk.",
     "Product is VelvetOS; this repo is the Velvet Factory instance. Core modules are always loaded under packages/velvetos/modules/. Other businesses = separate instance repos (REPOS.md).",
@@ -236,7 +248,7 @@
         "image",
         "web"
       ],
-      "decides": "content pack and cover drafts. HQ reviews/schedules only. Grok sends."
+      "decides": "content concept/edit/cover/feed planning under current Creative Autonomy; publish only after canonical gates and real-tool verification. Owner-approved visual standard is mandatory."
     },
     {
       "id": "ops",

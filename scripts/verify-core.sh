@@ -25,9 +25,13 @@ required=(
   ".cursor/skills/velvet-creative-director/SKILL.md"
   ".cursor/skills/velvet-brand-guardian/SKILL.md"
   ".cursor/skills/velvet-media-librarian/SKILL.md"
+  "packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md"
+  "packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md"
+  "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
   "packages/vfom/CREATIVE-MANIFEST.schema.json"
   "packages/vfom/FORMAT-GENOMES.md"
   "packages/vfom/MOTION-PRESETS.md"
+  "scripts/check-visual-standard-bootstrap.py"
   "scripts/check-creative-system.py"
   "scripts/check-creative-autopilot.py"
 )
@@ -36,6 +40,8 @@ for rel in "${required[@]}"; do
   [[ -f "$DEST/$rel" ]] || fail "missing required Core file: $rel"
 done
 
+python3 "$ROOT/scripts/check-instance-visual-bootstrap.py"
+python3 "$DEST/scripts/check-visual-standard-bootstrap.py"
 python3 "$DEST/scripts/check-creative-system.py"
 python3 "$DEST/scripts/check-creative-autopilot.py"
 
