@@ -47,3 +47,7 @@ For publication-prep, load `vendor/velvetos-core/packages/vfom/CREATIVE-TRANSFOR
 ## UNIVERSAL PROJECT REQUEST GATE — ALWAYS REQUIRED
 
 Before substantive work on **any** Velvet Factory request, load `vendor/velvetos-core/packages/velvetos/PROJECT-REQUEST-GATE.md` and resolve `vendor/velvetos-core/packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json`. Classify the request, route only the relevant packs/skills/Sources of Truth, resolve hard constraints, and require `project_preflight: PASS` before execution. Missing/stale/conflicting mandatory authority is fail-closed; do not use generic model behavior or memory from another chat as fallback. Exact-result postflight is mandatory before claiming done/ready/published/synced.
+
+## OFFERING SHAPE — ALWAYS REQUIRED
+
+Public offering authority: `vendor/velvetos-core/packages/vfbiz/OFFERING.md`. Velvet Factory exposes two clear tracks only: ready products and custom 3D print/model work. Customer type and quantity are job attributes, never a standalone service category. Missing offering authority fails closed.
