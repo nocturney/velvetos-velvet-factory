@@ -17,6 +17,25 @@ This file is the guide for this business office. Core laws still win for send / 
 - Never invent ₪ or Insights. No auto-DM, Boost/Ads without lead, customer WhatsApp send, or Print from HQ.
 - HQ sends Gmail and Instagram via real tools (`vendor/velvetos-core/constitution/SEND.md`); never claim a send/publish without receipt/evidence.
 
+## OWNER-APPROVED VISUAL STANDARD
+
+For every Instagram/feed visual workflow, read and obey Core:
+
+- `packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md`
+- `packages/vfom/VISUAL-OS.md`
+- `packages/vfom/VISUAL-DNA.json`
+- `.cursor/skills/velvet-brand-guardian/SKILL.md`
+
+Canonical approved Canva reference asset: `MAHVJjCCKQA` (`Velvet Factory · APPROVED GRID VISUAL STANDARD · 2026-09-14`).
+
+The approved grid standard is the required visual-language and quality floor for feed posts, Reel covers, carousel pages, Story stills, service/editorial tiles and grid planning. It is **not** permission to alter real products: Product Truth, real source evidence, constitution and rights always win.
+
+Required direction: product-first, real photography as truth anchor, `Retouch the photo, not the product`, minimal Hebrew typography, premium/non-template editorial finish, photo-first service communication, curated recipe diversity (hero / UGC-human / macro-detail / minimal-studio / bundle-flatlay / service-editorial / proof-process), coherent feed treatment and exact-final QA.
+
+Hard rejects include placeholders presented as finals, generic icons replacing product photography, synthetic replacement/drift of a real product, fake customer/shelf scenes, stock filler, text-heavy generic template cards and rejected G004 Canva design `DAHUaelaug0` as source/style/layout/canonical edit/publish asset.
+
+Any tool or agent that selects media, retouches, designs in Canva, builds covers/carousels/stories, plans the grid, runs Brand Guardian/QA or prepares publish preflight must apply this standard before output can PASS.
+
 ## CREATIVE AUTOPILOT
 
 This instance enables `creativeAutonomy.mode=exception-only` with standing authorization for routine organic Instagram publishing.
