@@ -14,6 +14,8 @@ STD = "packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md"
 PROMPT = "packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md"
 BRAND = "packages/vfom/BRAND-ASSET-LOCK.md"
 TRANSFORM = "packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md"
+PROJECT_GATE = "packages/velvetos/PROJECT-REQUEST-GATE.md"
+PROJECT_MANIFEST = "packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json"
 REF = "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
 PUBLIC = "https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
 ASSET = "MAHVJjCCKQA"
@@ -37,7 +39,7 @@ def main() -> None:
     if not RULE.is_file():
         fail("missing always-on rule")
     rule = RULE.read_text(encoding="utf-8")
-    for needle in ("alwaysApply: true", "OWNER-APPROVED-GRID-STANDARD-2026-09-14.md", "BRAND-ASSET-LOCK.md", "CREATIVE-TRANSFORMATION-LOCK.md", ASSET, SHA, "cold-start"):
+    for needle in ("alwaysApply: true", "OWNER-APPROVED-GRID-STANDARD-2026-09-14.md", "BRAND-ASSET-LOCK.md", "CREATIVE-TRANSFORMATION-LOCK.md", "PROJECT-REQUEST-GATE.md", "PROJECT-AUTHORITY-MANIFEST.json", ASSET, SHA, "cold-start"):
         if needle.lower() not in rule.lower():
             fail(f"always-on rule missing {needle}")
     desk = load(DESK)
@@ -93,7 +95,15 @@ def main() -> None:
         fail("instance creative transformation lock not strict")
     if (autonomy.get("publish") or {}).get("requireCreativeTransformationLock") is not True:
         fail("instance publish gate does not require creative transformation lock")
-    for rel in (STD, PROMPT, BRAND, TRANSFORM, REF, "scripts/check-visual-standard-bootstrap.py", "scripts/check-brand-asset-cta-lock.py", "scripts/check-creative-transformation-lock.py"):
+    project_gate = desk.get("projectRequestGate") or {}
+    if project_gate.get("required") is not True or project_gate.get("document") != f"vendor/velvetos-core/{PROJECT_GATE}" or project_gate.get("manifest") != f"vendor/velvetos-core/{PROJECT_MANIFEST}" or project_gate.get("mode") != "fail_closed" or project_gate.get("requirePreflightPass") is not True:
+        fail("vf-desk projectRequestGate mismatch")
+    inst_gate = autonomy.get("projectRequestGate") or {}
+    if inst_gate.get("required") is not True or inst_gate.get("document") != PROJECT_GATE or inst_gate.get("manifest") != PROJECT_MANIFEST or inst_gate.get("mode") != "fail_closed":
+        fail("instance projectRequestGate mismatch")
+    if (autonomy.get("publish") or {}).get("requireProjectRequestGate") is not True:
+        fail("instance publish gate does not require project request gate")
+    for rel in (STD, PROMPT, BRAND, TRANSFORM, PROJECT_GATE, PROJECT_MANIFEST, REF, "scripts/check-visual-standard-bootstrap.py", "scripts/check-brand-asset-cta-lock.py", "scripts/check-creative-transformation-lock.py", "scripts/check-project-request-gate.py"):
         if not (CORE / rel).is_file():
             fail(f"attached Core missing {rel}")
     print("OK instance cold-start visual standard bootstrap bound + Core assets present")

@@ -646,5 +646,13 @@
     "defaultEditMode": "SOURCE_IMAGE_EDIT",
     "heroTreatmentRequired": true,
     "multiplePhotosDoNotImplyCarousel": true
+  },
+  "projectRequestGate": {
+    "required": true,
+    "document": "vendor/velvetos-core/packages/velvetos/PROJECT-REQUEST-GATE.md",
+    "manifest": "vendor/velvetos-core/packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json",
+    "mode": "fail_closed",
+    "requirePreflightPass": true,
+    "postflightRequired": true
   }
 }

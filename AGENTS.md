@@ -77,3 +77,8 @@ For every Velvet Factory public creative, load `vendor/velvetos-core/packages/vf
 
 For publication-prep, load `vendor/velvetos-core/packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md`. Preserve the real product but materially transform its presentation. Default to editing the real source image/reference, not recreating the product from text. Raw-photo/resize-only/crop+exposure-only carousel fallback is forbidden. Multiple source photos do not imply a carousel. If a carousel is chosen, slide 1 must be a fully treated hero at the approved Velvet quality bar. Require `creative_delta_gate=PASS`, `raw_passthrough=false`, source-grounded edit mode and concrete hero transformation evidence.
 
+
+
+## UNIVERSAL PROJECT REQUEST GATE — ALWAYS REQUIRED
+
+Before substantive work on **any** request, load `vendor/velvetos-core/packages/velvetos/PROJECT-REQUEST-GATE.md` and resolve `vendor/velvetos-core/packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json`. Classify the request, load only the routed Constitution/domain authorities, relevant skills and Sources of Truth, resolve hard gates, and require `project_preflight: PASS` before execution. Missing/stale/conflicting mandatory authority fails closed; never fall back to generic model defaults or memory from an older chat. After execution, run the routed domain postflight on the exact final artifact/provider result before claiming completion.
