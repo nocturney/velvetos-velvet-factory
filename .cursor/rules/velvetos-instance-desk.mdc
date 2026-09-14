@@ -38,3 +38,7 @@ Product Truth / source evidence / rights / constitution always outrank style. Th
 
 For every Velvet Factory public creative, load `vendor/velvetos-core/packages/vfom/BRAND-ASSET-LOCK.md`. Never invent, redraw, approximate or ask a generative model to render a Velvet Factory logo/wordmark/emblem. Generative base frames must contain **NO LOGO · NO WORDMARK · NO PHONE NUMBER · NO WHATSAPP · NO CONTACT BAR**. If no exact owner-approved logo asset is available to the job, use no logo; if one is available, composite that exact asset deterministically after generation/editing. `050-2517000` remains BUSINESS_CONTACT_RECORD only and is forbidden in public creative/caption unless Christian explicitly requests that exact public use in the current task. Missing brand lock fails closed.
 
+## CREATIVE TRANSFORMATION LOCK — ALWAYS REQUIRED
+
+For publication-prep, load `vendor/velvetos-core/packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md`. Preserve the real product but materially transform its presentation. Default to editing the real source image/reference, not recreating the product from text. Raw-photo/resize-only/crop+exposure-only carousel fallback is forbidden. Multiple source photos do not imply a carousel. If a carousel is chosen, slide 1 must be a fully treated hero at the approved Velvet quality bar. Require `creative_delta_gate=PASS`, `raw_passthrough=false`, source-grounded edit mode and concrete hero transformation evidence.
+

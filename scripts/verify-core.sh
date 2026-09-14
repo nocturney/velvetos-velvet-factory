@@ -37,6 +37,7 @@ required=(
   "packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md"
   "packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md"
   "packages/vfom/BRAND-ASSET-LOCK.md"
+  "packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md"
   "packages/vfom/VISUAL-STANDARD-ENFORCEMENT.json"
   "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
   "packages/vfom/CREATIVE-MANIFEST.schema.json"
@@ -45,6 +46,7 @@ required=(
   "scripts/check-visual-standard-bootstrap.py"
   "scripts/check-visual-surface-enforcement.py"
   "scripts/check-brand-asset-cta-lock.py"
+  "scripts/check-creative-transformation-lock.py"
   "scripts/check-creative-system.py"
   "scripts/check-creative-autopilot.py"
 )
@@ -57,6 +59,7 @@ done
 "$PYTHON_BIN" "$DEST/scripts/check-visual-standard-bootstrap.py"
 "$PYTHON_BIN" "$DEST/scripts/check-visual-surface-enforcement.py"
 "$PYTHON_BIN" "$DEST/scripts/check-brand-asset-cta-lock.py"
+"$PYTHON_BIN" "$DEST/scripts/check-creative-transformation-lock.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-system.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-autopilot.py"
 
