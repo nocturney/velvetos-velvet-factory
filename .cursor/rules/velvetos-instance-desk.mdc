@@ -7,8 +7,29 @@ alwaysApply: true
 
 You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/velvetos-core` (VelvetOS Core).
 
-- Attach core: `./scripts/attach-core.sh` (Cloud Agent: auto via `.cursor/environment.json` `install`)
-- Studio facts: `constitution/STUDIO.md`
-- Profile: `instance/velvet-factory.json`
-- HQ sends Gmail/IG via tools (`vendor/velvetos-core/constitution/SEND.md`)
-- No invented ₪ / Insights. No auto-DM. CTA WhatsApp `050-2517000` / איסוף שדרות.
+- Attach core: `./scripts/attach-core.sh` (Cloud Agent: auto via `.cursor/environment.json` `install`).
+- Studio facts: `constitution/STUDIO.md`.
+- Profile: `instance/velvet-factory.json`.
+- HQ sends Gmail/IG via real tools (`vendor/velvetos-core/constitution/SEND.md`).
+- No invented ₪ / Insights. No auto-DM, Boost/Ads without lead, customer WhatsApp send, or Print from HQ.
+- Public CTA follows the current Core contract: Instagram message to `@velvets_cloud` + pickup Sderot. WhatsApp `050-2517000` is a business-contact record, not the public CTA.
+
+## COLD-START VISUAL STANDARD GATE — ALWAYS REQUIRED
+
+For **any** request involving Instagram content, social content, image selection/editing, Canva, post, carousel, Story still, Reel cover, feed/grid planning, product showcase, service/editorial creative, visual QA or publish preflight, you MUST load these Core authorities **before proposing or generating creative**:
+
+1. `vendor/velvetos-core/packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md`
+2. `vendor/velvetos-core/packages/vfom/VISUAL-OS.md`
+3. `vendor/velvetos-core/packages/vfom/VISUAL-DNA.json`
+4. `vendor/velvetos-core/.cursor/skills/velvet-brand-guardian/SKILL.md`
+5. `instance/velvet-factory.json`
+
+Canonical approved visual reference: Canva asset `MAHVJjCCKQA`, SHA-256 `707edde3f4d43cffea090bf90ed2418c160db2f8d90d104e4920b44697a014c0`.
+
+This is a **bootstrap invariant, not optional inspiration**. A new conversation with no prior chat context must still inherit it. If the standard cannot be loaded or its configured identity does not match, stop the creative branch as `visual_standard_unavailable`; do not silently fall back to generic 3D-print, stock, template or model-default aesthetics.
+
+Required direction: product-first, real photography as the truth anchor, `Retouch the photo, not the product`, minimal Hebrew typography, premium/non-template editorial finish, photo-first service communication, curated recipe diversity and exact-final QA.
+
+Hard rejects: placeholders presented as finals; generic icons replacing real product media; synthetic replacement/drift of a real product; fake customer/shelf scenes; stock filler; text-heavy generic template cards; cheap/generic Canva look; and rejected G004 design `DAHUaelaug0` as source, style, layout, canonical edit or publish asset.
+
+Product Truth / source evidence / rights / constitution always outrank style. The approved reference defines the quality floor and visual language; it never authorizes false representation of the physical product.
