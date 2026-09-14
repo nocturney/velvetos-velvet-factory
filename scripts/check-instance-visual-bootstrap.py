@@ -12,6 +12,7 @@ INSTANCE = ROOT / "instance" / "velvet-factory.json"
 CORE = ROOT / "vendor" / "velvetos-core"
 STD = "packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md"
 PROMPT = "packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md"
+BRAND = "packages/vfom/BRAND-ASSET-LOCK.md"
 REF = "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
 PUBLIC = "https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
 ASSET = "MAHVJjCCKQA"
@@ -35,7 +36,7 @@ def main() -> None:
     if not RULE.is_file():
         fail("missing always-on rule")
     rule = RULE.read_text(encoding="utf-8")
-    for needle in ("alwaysApply: true", "OWNER-APPROVED-GRID-STANDARD-2026-09-14.md", ASSET, SHA, "cold-start"):
+    for needle in ("alwaysApply: true", "OWNER-APPROVED-GRID-STANDARD-2026-09-14.md", "BRAND-ASSET-LOCK.md", ASSET, SHA, "cold-start"):
         if needle.lower() not in rule.lower():
             fail(f"always-on rule missing {needle}")
     desk = load(DESK)
@@ -69,7 +70,17 @@ def main() -> None:
             fail(f"instance ownerApprovedVisualStandard.{key} mismatch")
     if (autonomy.get("publish") or {}).get("requireOwnerApprovedVisualStandard") is not True:
         fail("instance publish gate does not require owner visual standard")
-    for rel in (STD, PROMPT, REF, "scripts/check-visual-standard-bootstrap.py"):
+    brand = desk.get("brandAssetLock") or {}
+    if brand.get("required") is not True or brand.get("document") != f"vendor/velvetos-core/{BRAND}" or brand.get("mode") != "fail_closed":
+        fail("vf-desk brandAssetLock mismatch")
+    inst_brand = autonomy.get("brandAssetLock") or {}
+    if inst_brand.get("required") is not True or inst_brand.get("document") != BRAND or inst_brand.get("mode") != "fail_closed":
+        fail("instance brandAssetLock mismatch")
+    if inst_brand.get("generatedBrandMark") != "forbidden" or inst_brand.get("publicPhoneForbidden") is not True:
+        fail("instance brand asset/public-phone lock not strict")
+    if (autonomy.get("publish") or {}).get("requireBrandAssetLock") is not True:
+        fail("instance publish gate does not require brand asset lock")
+    for rel in (STD, PROMPT, BRAND, REF, "scripts/check-visual-standard-bootstrap.py", "scripts/check-brand-asset-cta-lock.py"):
         if not (CORE / rel).is_file():
             fail(f"attached Core missing {rel}")
     print("OK instance cold-start visual standard bootstrap bound + Core assets present")

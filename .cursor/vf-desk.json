@@ -628,5 +628,14 @@
     ".cursor/skills/vf-ig-music/SKILL.md",
     ".cursor/skills/vf-velvetos/SKILL.md"
   ],
-  "role": "instance"
+  "role": "instance",
+  "brandAssetLock": {
+    "required": true,
+    "document": "vendor/velvetos-core/packages/vfom/BRAND-ASSET-LOCK.md",
+    "mode": "fail_closed",
+    "generatedBrandMark": "forbidden",
+    "logoWhenVerifiedOnly": "deterministic_overlay",
+    "publicPhoneForbidden": true,
+    "publicCtaAuthority": "vendor/velvetos-core/constitution/PUBLIC_CTA.md"
+  }
 }
