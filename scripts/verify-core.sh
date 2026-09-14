@@ -36,11 +36,13 @@ required=(
   ".cursor/skills/velvet-media-librarian/SKILL.md"
   "packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md"
   "packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md"
+  "packages/vfom/VISUAL-STANDARD-ENFORCEMENT.json"
   "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
   "packages/vfom/CREATIVE-MANIFEST.schema.json"
   "packages/vfom/FORMAT-GENOMES.md"
   "packages/vfom/MOTION-PRESETS.md"
   "scripts/check-visual-standard-bootstrap.py"
+  "scripts/check-visual-surface-enforcement.py"
   "scripts/check-creative-system.py"
   "scripts/check-creative-autopilot.py"
 )
@@ -51,6 +53,7 @@ done
 
 "$PYTHON_BIN" "$ROOT/scripts/check-instance-visual-bootstrap.py"
 "$PYTHON_BIN" "$DEST/scripts/check-visual-standard-bootstrap.py"
+"$PYTHON_BIN" "$DEST/scripts/check-visual-surface-enforcement.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-system.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-autopilot.py"
 
