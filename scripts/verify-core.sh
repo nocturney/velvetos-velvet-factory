@@ -47,6 +47,10 @@ required=(
   "scripts/check-visual-surface-enforcement.py"
   "scripts/check-brand-asset-cta-lock.py"
   "scripts/check-creative-transformation-lock.py"
+  "packages/velvetos/PROJECT-REQUEST-GATE.md"
+  "packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json"
+  "scripts/vf_project_preflight.py"
+  "scripts/check-project-request-gate.py"
   "scripts/check-creative-system.py"
   "scripts/check-creative-autopilot.py"
 )
@@ -60,6 +64,7 @@ done
 "$PYTHON_BIN" "$DEST/scripts/check-visual-surface-enforcement.py"
 "$PYTHON_BIN" "$DEST/scripts/check-brand-asset-cta-lock.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-transformation-lock.py"
+"$PYTHON_BIN" "$DEST/scripts/check-project-request-gate.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-system.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-autopilot.py"
 
