@@ -33,3 +33,8 @@ Required direction: product-first, real photography as the truth anchor, `Retouc
 Hard rejects: placeholders presented as finals; generic icons replacing real product media; synthetic replacement/drift of a real product; fake customer/shelf scenes; stock filler; text-heavy generic template cards; cheap/generic Canva look; and rejected G004 design `DAHUaelaug0` as source, style, layout, canonical edit or publish asset.
 
 Product Truth / source evidence / rights / constitution always outrank style. The approved reference defines the quality floor and visual language; it never authorizes false representation of the physical product.
+
+## BRAND ASSET + PUBLIC CTA LOCK — ALWAYS REQUIRED
+
+For every Velvet Factory public creative, load `vendor/velvetos-core/packages/vfom/BRAND-ASSET-LOCK.md`. Never invent, redraw, approximate or ask a generative model to render a Velvet Factory logo/wordmark/emblem. Generative base frames must contain **NO LOGO · NO WORDMARK · NO PHONE NUMBER · NO WHATSAPP · NO CONTACT BAR**. If no exact owner-approved logo asset is available to the job, use no logo; if one is available, composite that exact asset deterministically after generation/editing. `050-2517000` remains BUSINESS_CONTACT_RECORD only and is forbidden in public creative/caption unless Christian explicitly requests that exact public use in the current task. Missing brand lock fails closed.
+

@@ -68,3 +68,8 @@ Shared owner memory lives in Core, not duplicated here:
 ```
 
 Cloud Agent `.cursor/environment.json` runs attach-core on boot. After Core catalog/rule edits run Core `python3 scripts/check-all.py`.
+
+## BRAND ASSET + PUBLIC CTA LOCK — ALWAYS REQUIRED
+
+For every Velvet Factory public creative, load `vendor/velvetos-core/packages/vfom/BRAND-ASSET-LOCK.md`. Never invent, redraw, approximate or ask a generative model to render a Velvet Factory logo/wordmark/emblem. Generative base frames must contain **NO LOGO · NO WORDMARK · NO PHONE NUMBER · NO WHATSAPP · NO CONTACT BAR**. If no exact owner-approved logo asset is available to the job, use no logo; if one is available, composite that exact asset deterministically after generation/editing. `050-2517000` remains BUSINESS_CONTACT_RECORD only and is forbidden in public creative/caption unless Christian explicitly requests that exact public use in the current task. Missing brand lock fails closed.
+
