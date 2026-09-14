@@ -99,10 +99,15 @@
     "ownerSurface": "human_required_only",
     "visualAuthority": "packages/vfom/VISUAL-OS.md",
     "ownerApprovedVisualStandard": {
+      "required": true,
       "status": "approved",
       "document": "packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md",
+      "portablePrompt": "packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md",
+      "referenceAsset": "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg",
+      "publicReferenceUrl": "https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg",
       "canvaAssetId": "MAHVJjCCKQA",
       "artifactSha256": "707edde3f4d43cffea090bf90ed2418c160db2f8d90d104e4920b44697a014c0",
+      "coldStartGate": "fail_closed",
       "requiredFor": ["feed-plan", "post", "carousel", "reel-cover", "story-still", "service-editorial", "visual-qa", "publish-preflight"],
       "truthPriority": "constitution-product-truth-source-evidence-over-style-reference",
       "hardRejects": ["placeholder-final", "generic-product-icon", "synthetic-real-product-replacement", "subject-drift", "fake-customer-scene", "generic-template-card", "stock-filler", "rejected-g004-canva-DAHUaelaug0"]
