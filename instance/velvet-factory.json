@@ -260,7 +260,8 @@
       "requireToolReceipt": true,
       "requireLiveVerification": true,
       "requireOwnerApprovedVisualStandard": true,
-      "requireBrandAssetLock": true
+      "requireBrandAssetLock": true,
+      "requireCreativeTransformationLock": true
     },
     "humanRequired": [
       "physical-footage-or-staging",
@@ -281,6 +282,14 @@
       "logoWhenVerifiedOnly": "deterministic_overlay",
       "publicPhoneForbidden": true,
       "publicCtaAuthority": "constitution/PUBLIC_CTA.md"
+    },
+    "creativeTransformationLock": {
+      "required": true,
+      "document": "packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md",
+      "mode": "fail_closed",
+      "rawPassthrough": false,
+      "defaultEditMode": "SOURCE_IMAGE_EDIT",
+      "heroTreatmentRequired": true
     }
   },
   "locks": [

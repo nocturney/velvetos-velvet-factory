@@ -637,5 +637,14 @@
     "logoWhenVerifiedOnly": "deterministic_overlay",
     "publicPhoneForbidden": true,
     "publicCtaAuthority": "vendor/velvetos-core/constitution/PUBLIC_CTA.md"
+  },
+  "creativeTransformationLock": {
+    "required": true,
+    "document": "vendor/velvetos-core/packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md",
+    "mode": "fail_closed",
+    "rawPassthrough": false,
+    "defaultEditMode": "SOURCE_IMAGE_EDIT",
+    "heroTreatmentRequired": true,
+    "multiplePhotosDoNotImplyCarousel": true
   }
 }
