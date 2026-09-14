@@ -98,6 +98,15 @@
     "autoRepairQuality": true,
     "ownerSurface": "human_required_only",
     "visualAuthority": "packages/vfom/VISUAL-OS.md",
+    "ownerApprovedVisualStandard": {
+      "status": "approved",
+      "document": "packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md",
+      "canvaAssetId": "MAHVJjCCKQA",
+      "artifactSha256": "707edde3f4d43cffea090bf90ed2418c160db2f8d90d104e4920b44697a014c0",
+      "requiredFor": ["feed-plan", "post", "carousel", "reel-cover", "story-still", "service-editorial", "visual-qa", "publish-preflight"],
+      "truthPriority": "constitution-product-truth-source-evidence-over-style-reference",
+      "hardRejects": ["placeholder-final", "generic-product-icon", "synthetic-real-product-replacement", "subject-drift", "fake-customer-scene", "generic-template-card", "stock-filler", "rejected-g004-canva-DAHUaelaug0"]
+    },
     "orchestration": "packages/vfom/CREATIVE-AUTOPILOT.md",
     "mediaCatalog": "packages/vfmedia/catalog.json",
     "publish": {
@@ -108,7 +117,8 @@
       "requirePreflight": true,
       "requireKnownRights": true,
       "requireToolReceipt": true,
-      "requireLiveVerification": true
+      "requireLiveVerification": true,
+      "requireOwnerApprovedVisualStandard": true
     },
     "humanRequired": [
       "physical-footage-or-staging",
@@ -124,5 +134,5 @@
   },
   "locks": ["human-close-whatsapp", "pickup-only", "b2b-locked", "public-commercial-files-only"],
   "packPrefix": "vf",
-  "notes": "Live Velvet Factory office frontend. Pulls modules/packs from VelvetOS Core. Creative Autopilot is standing-authorized for routine organic Instagram only."
+  "notes": "Live Velvet Factory office frontend. Pulls modules/packs from VelvetOS Core. Creative Autopilot is standing-authorized for routine organic Instagram only. Owner-approved grid visual standard is mandatory for public visual QA/preflight."
 }
