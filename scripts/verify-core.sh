@@ -7,6 +7,15 @@ DEST="$ROOT/vendor/velvetos-core"
 CORE_REF="${VELVETOS_CORE_REF:-main}"
 MODE="${1:-focused}"
 
+if python3 -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif python -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+else
+  echo "FAIL core verification: functional Python 3 not found (tried python3, python)" >&2
+  exit 1
+fi
+
 fail() {
   echo "FAIL core verification: $*" >&2
   exit 1
@@ -40,13 +49,13 @@ for rel in "${required[@]}"; do
   [[ -f "$DEST/$rel" ]] || fail "missing required Core file: $rel"
 done
 
-python3 "$ROOT/scripts/check-instance-visual-bootstrap.py"
-python3 "$DEST/scripts/check-visual-standard-bootstrap.py"
-python3 "$DEST/scripts/check-creative-system.py"
-python3 "$DEST/scripts/check-creative-autopilot.py"
+"$PYTHON_BIN" "$ROOT/scripts/check-instance-visual-bootstrap.py"
+"$PYTHON_BIN" "$DEST/scripts/check-visual-standard-bootstrap.py"
+"$PYTHON_BIN" "$DEST/scripts/check-creative-system.py"
+"$PYTHON_BIN" "$DEST/scripts/check-creative-autopilot.py"
 
 if [[ "$MODE" == "--full" || "$MODE" == "full" ]]; then
-  python3 "$DEST/scripts/check-all.py"
+  "$PYTHON_BIN" "$DEST/scripts/check-all.py"
 elif [[ "$MODE" != "focused" && "$MODE" != "--focused" ]]; then
   fail "unknown mode '$MODE' (use focused or --full)"
 fi
