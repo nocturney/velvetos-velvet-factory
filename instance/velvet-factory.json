@@ -134,10 +134,12 @@
     "contentAllowed": "floor proof + Hebrew product copy",
     "extraLocks": [
       "pickup-sderot-only",
-      "b2b-line-locked",
+      "no-customer-type-service-pillar",
       "no-tiktok-without-lead",
       "no-ads-without-lead"
-    ]
+    ],
+    "offeringAuthority": "packages/vfbiz/OFFERING.md",
+    "noCustomerTypeServicePillar": true
   },
   "seats": [
     {
@@ -158,7 +160,7 @@
     {
       "id": "ops",
       "he": "תפעול",
-      "roleNote": "עלות, ספרים, B2B נעול"
+      "roleNote": "עלות, ספרים, החלטות עסקיות"
     },
     {
       "id": "production",
@@ -302,7 +304,7 @@
   "locks": [
     "human-close-whatsapp",
     "pickup-only",
-    "b2b-locked",
+    "no-customer-type-service-pillar",
     "public-commercial-files-only"
   ],
   "packPrefix": "vf",

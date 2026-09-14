@@ -51,6 +51,7 @@ required=(
   "packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json"
   "scripts/vf_project_preflight.py"
   "scripts/check-project-request-gate.py"
+  "scripts/check-vf-offering.py"
   "scripts/check-creative-system.py"
   "scripts/check-creative-autopilot.py"
 )
@@ -65,6 +66,7 @@ done
 "$PYTHON_BIN" "$DEST/scripts/check-brand-asset-cta-lock.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-transformation-lock.py"
 "$PYTHON_BIN" "$DEST/scripts/check-project-request-gate.py"
+"$PYTHON_BIN" "$DEST/scripts/check-vf-offering.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-system.py"
 "$PYTHON_BIN" "$DEST/scripts/check-creative-autopilot.py"
 
