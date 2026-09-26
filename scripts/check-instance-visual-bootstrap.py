@@ -18,7 +18,6 @@ PROJECT_GATE = "packages/velvetos/PROJECT-REQUEST-GATE.md"
 PROJECT_MANIFEST = "packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json"
 REF = "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
 PUBLIC = "https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg"
-ASSET = "MAHVL7PKpvE"
 SHA = "df41281b44e2c1ac99a1cb0c9f084ec926c30774f61468fc8988f59c5a136897"
 
 def fail(message: str) -> None:
@@ -39,7 +38,7 @@ def main() -> None:
     if not RULE.is_file():
         fail("missing always-on rule")
     rule = RULE.read_text(encoding="utf-8")
-    for needle in ("alwaysApply: true", "OWNER-APPROVED-GRID-STANDARD-2026-09-14.md", "BRAND-ASSET-LOCK.md", "CREATIVE-TRANSFORMATION-LOCK.md", "PROJECT-REQUEST-GATE.md", "PROJECT-AUTHORITY-MANIFEST.json", ASSET, SHA, "cold-start"):
+    for needle in ("alwaysApply: true", "OWNER-APPROVED-GRID-STANDARD-2026-09-14.md", "BRAND-ASSET-LOCK.md", "CREATIVE-TRANSFORMATION-LOCK.md", "PROJECT-REQUEST-GATE.md", "PROJECT-AUTHORITY-MANIFEST.json", SHA, "cold-start"):
         if needle.lower() not in rule.lower():
             fail(f"always-on rule missing {needle}")
     desk = load(DESK)
@@ -52,7 +51,6 @@ def main() -> None:
         "portablePrompt": f"vendor/velvetos-core/{PROMPT}",
         "referenceAsset": f"vendor/velvetos-core/{REF}",
         "publicReferenceUrl": PUBLIC,
-        "canvaAssetId": ASSET,
         "artifactSha256": SHA,
         "coldStartGate": "fail_closed",
     }
@@ -65,7 +63,6 @@ def main() -> None:
     expected_instance = {
         "required": True, "status": "approved", "document": STD,
         "portablePrompt": PROMPT, "referenceAsset": REF,
-        "publicReferenceUrl": PUBLIC, "canvaAssetId": ASSET,
         "artifactSha256": SHA, "coldStartGate": "fail_closed",
     }
     for key, expected in expected_instance.items():

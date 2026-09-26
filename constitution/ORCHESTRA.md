@@ -11,7 +11,6 @@
 
 ## שער איכות לפני שיבוץ
 
-כל סטוריז / פיד: ארטיפקט `packages/vfgrowth/preflight/<id>.md` — VOICE.md · Canva/vfcovers (לא JPEG גולמי) · ציון עצמי מול רף סוכנות · 2–3 קומפס מ־`VOICE-RESEARCH.md`.  
 נכשל-סגור → חסום שיבוץ. מתקנים במשרד. לא מעבירים למעלה.
 
 פלייבוק: `packages/vfgrowth/PREFLIGHT.md`.

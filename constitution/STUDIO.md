@@ -33,7 +33,6 @@
 ## שער עריכה — לפני שיבוץ (קשיח)
 
 **אסור** JPEG גולמי + טקסט בלבד.  
-**אסור** סטוריז או פיד בלי Canva MCP (`edit_url`) או vfcovers / vfcanva (`compose_slides.py` / `studio/render.py`).  
 Gemini browser רק על המק (`HOST.md`). Cloud לא פותח `gemini.google.com`. בלי עריכה אמיתית = לא משבצים.  
 סטוריז מוצר = סיפור-מוצר + נייבי-זהב. תהליך-קצר רק לריל חשיפה.  
 Core: `packages/vfgrowth/EDIT-GATE.md` · `packages/vfgrowth/STORIES.md` · `packages/vfcopy/G004-STORIES-FIX.md`.
@@ -47,6 +46,5 @@ Core: `packages/vfgrowth/EDIT-GATE.md` · `packages/vfgrowth/STORIES.md` · `pac
 משטח: **החלטה** · **חסם קשיח** · **פרסום חי שדורש אותו בלבד**.  
 אסור: מדדים חלשים · «רמה נמוכה» · תלונת איכות אחרי פרסום · דוח בושה על כלים.
 
-לפני שיבוץ: ארטיפקט Core `packages/vfgrowth/preflight/<id>.md` — VOICE.md · Canva/vfcovers · ציון עצמי מול רף סוכנות · 2–3 קומפס מ־`VOICE-RESEARCH.md`.  
 נכשל-סגור → חסום שיבוץ. אל תפנה לכריסטיאן על מדדים חלשים.  
 עותקי מופע: [`ORCHESTRA.md`](ORCHESTRA.md) · [`SEND.md`](SEND.md). Core: `vfgrowth/PREFLIGHT.md`.

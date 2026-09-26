@@ -11,6 +11,5 @@
     "vendorPath": "vendor/velvetos-core",
     "attach": "scripts/attach-core.sh"
   },
-  "metaphor": "frontend office for one business; backend kernel is VelvetOS Core",
-  "rule": "Enable modules from core. Do not fork packs into a parallel tree. Bind live tools (Gmail/Calendar/Canva/IG) here. Creative Autopilot policy is instance-scoped in the profile."
+  "metaphor": "frontend office for one business; backend kernel is VelvetOS Core"
 }
