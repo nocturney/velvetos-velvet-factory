@@ -20,7 +20,9 @@ You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/v
 
 ## COLD-START VISUAL STANDARD GATE — ALWAYS REQUIRED
 
+Tool authority: `vendor/velvetos-core/packages/velvetos/TOOL-STATUS.json`. IDs named in this section are reference identity or hard-reject entries only, never a provider route.
 
+For **any** request involving Instagram content, social content, image selection/editing, post, carousel, Story still, Reel cover, feed/grid planning, product showcase, service/editorial creative, visual QA or publish preflight, you MUST load these Core authorities **before proposing or generating creative**:
 
 1. `vendor/velvetos-core/packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md`
 2. `vendor/velvetos-core/packages/vfom/VISUAL-OS.md`
@@ -28,11 +30,13 @@ You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/v
 4. `vendor/velvetos-core/.cursor/skills/velvet-brand-guardian/SKILL.md`
 5. `instance/velvet-factory.json`
 
+Canonical approved visual reference: `vendor/velvetos-core/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg`, SHA-256 `df41281b44e2c1ac99a1cb0c9f084ec926c30774f61468fc8988f59c5a136897`.
 
 This is a **bootstrap invariant, not optional inspiration**. A new conversation with no prior chat context must still inherit it. If the standard cannot be loaded or its configured identity does not match, stop the creative branch as `visual_standard_unavailable`; do not silently fall back to generic 3D-print, stock, template or model-default aesthetics. Product Truth from real source media outranks style.
 
 Required direction: product-first, real photography as the truth anchor, `Retouch the photo, not the product`, minimal Hebrew typography, premium/non-template editorial finish, photo-first service communication, curated recipe diversity and exact-final QA.
 
+Hard rejects: placeholders presented as finals; generic icons replacing real product media; synthetic replacement/drift of a real product; fake customer/shelf scenes; stock filler; text-heavy generic template cards; cheap/generic design-template look (including the retired Canva-template look); and rejected G004 design `DAHUaelaug0` (legacy Canva design ID) as source, style, layout, canonical edit or publish asset.
 
 Product Truth / source evidence / rights / constitution always outrank style. The approved reference defines the quality floor and visual language; it never authorizes false representation of the physical product.
 

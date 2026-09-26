@@ -240,7 +240,8 @@
         "subject-drift",
         "fake-customer-scene",
         "generic-template-card",
-        "stock-filler"
+        "stock-filler",
+        "rejected-g004-canva-DAHUaelaug0"
       ]
     },
     "orchestration": "packages/vfom/CREATIVE-AUTOPILOT.md",
