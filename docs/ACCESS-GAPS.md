@@ -21,5 +21,6 @@ vendor/velvetos-core/docs/ACCESS-GAPS.md
 | Instagram Publish | `packages/vfigos/CONNECT-IG.md` |
 | 3D AI Studio OAuth | `packages/vfprod/CONNECT-3DAI.md` |
 | Origin tmp vendor | `docs/ORIGIN-SLUGS.md` |
+| CI → ליבה פרטית (`VELVETOS_CORE_READ_TOKEN`) | `docs/CI-CORE-ACCESS.md` (בריפו הזה) |
 
 ריפוז פומבי ≠ MCP מחובר. OAuth והרשאות GitHub App — צעדי בעלים חד-פעמיים.

@@ -41,6 +41,30 @@ jobs:
         with:
           python-version: "3.11"
 
+      # nocturney/velvetos-core is PRIVATE; this repo's GITHUB_TOKEN cannot read it.
+      # Owner-provided secret: fine-grained token, Contents: Read-only, scoped to
+      # nocturney/velvetos-core only (see docs/CI-CORE-ACCESS.md).
+      - name: Require Core read token
+        env:
+          VELVETOS_CORE_READ_TOKEN: ${{ secrets.VELVETOS_CORE_READ_TOKEN }}
+        run: |
+          if [ -z "$VELVETOS_CORE_READ_TOKEN" ]; then
+            echo "::error title=Missing secret VELVETOS_CORE_READ_TOKEN::Add repository secret VELVETOS_CORE_READ_TOKEN (fine-grained token, Contents: Read-only on nocturney/velvetos-core only). nocturney/velvetos-core is private and GITHUB_TOKEN cannot clone it. See docs/CI-CORE-ACCESS.md."
+            exit 1
+          fi
+          echo "VELVETOS_CORE_READ_TOKEN present (value masked)."
+
+      # Clone Core exactly where attach-core.sh expects it (vendor/velvetos-core
+      # with .git on branch main). actions/checkout masks the token and persists it
+      # only for this checkout, so attach-core.sh / verify-core.sh `git fetch` work.
+      - name: Checkout private Core main
+        uses: actions/checkout@v7
+        with:
+          repository: nocturney/velvetos-core
+          ref: main
+          path: vendor/velvetos-core
+          token: ${{ secrets.VELVETOS_CORE_READ_TOKEN }}
+
       - name: Attach and verify current Core main
         run: bash scripts/attach-core.sh
 
