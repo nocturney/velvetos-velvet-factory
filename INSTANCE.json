@@ -3,7 +3,7 @@
   "role": "instance",
   "displayName": "VelvetOS — Velvet Factory",
   "instanceId": "velvet-factory",
-  "updatedAt": "2026-09-10",
+  "updatedAt": "2026-09-26",
   "profile": "instance/velvet-factory.json",
   "core": {
     "github": "nocturney/velvetos-core",
