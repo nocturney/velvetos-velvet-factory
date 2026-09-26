@@ -132,14 +132,14 @@
     "hqSendViaTools": true,
     "denyPersonalMedicalLegalFoldersUnlessNamed": true,
     "contentAllowed": "floor proof + Hebrew product copy",
+    "offeringAuthority": "packages/vfbiz/OFFERING.md",
+    "noCustomerTypeServicePillar": true,
     "extraLocks": [
       "pickup-sderot-only",
       "no-customer-type-service-pillar",
       "no-tiktok-without-lead",
       "no-ads-without-lead"
-    ],
-    "offeringAuthority": "packages/vfbiz/OFFERING.md",
-    "noCustomerTypeServicePillar": true
+    ]
   },
   "seats": [
     {
@@ -201,7 +201,8 @@
       "dm": false,
       "stories": true,
       "canonicalMcp": "adelaidasofia/instagram-mcp",
-      "connect": "packages/vfigos/CONNECT-IG.md"
+      "connect": "packages/vfigos/CONNECT-IG.md",
+      "publishBridge": "packages/vfigos/PUBLISH-BRIDGE.json"
     }
   },
   "creativeAutonomy": {
@@ -211,6 +212,7 @@
     "autoRepairQuality": true,
     "ownerSurface": "human_required_only",
     "visualAuthority": "packages/vfom/VISUAL-OS.md",
+    "visualDNA": "packages/vfom/VISUAL-DNA.json",
     "ownerApprovedVisualStandard": {
       "required": true,
       "status": "approved",
@@ -244,7 +246,27 @@
       ]
     },
     "orchestration": "packages/vfom/CREATIVE-AUTOPILOT.md",
+    "foundryPolicy": "packages/vfom/FOUNDRY.json",
+    "contentContractSchema": "packages/vfom/CONTENT-CONTRACT.schema.json",
+    "creativeManifestSchema": "packages/vfom/CREATIVE-MANIFEST.schema.json",
+    "motionPresets": "packages/vfom/MOTION-PRESETS.md",
+    "formatGenomes": "packages/vfom/FORMAT-GENOMES.md",
+    "specialists": {
+      "creativeDirector": ".cursor/skills/velvet-creative-director/SKILL.md",
+      "brandGuardian": ".cursor/skills/velvet-brand-guardian/SKILL.md",
+      "mediaLibrarian": ".cursor/skills/velvet-media-librarian/SKILL.md"
+    },
+    "creativeManifestRequired": true,
     "mediaCatalog": "packages/vfmedia/catalog.json",
+    "assetTruthSchema": "packages/vfmedia/catalog.schema.json#/$defs/assetTruth",
+    "learningAuthority": "vfinsights+office-learning",
+    "progressiveVariants": true,
+    "noveltyFatigue": true,
+    "exceptionQueue": {
+      "low": "auto_with_standing_authorization",
+      "medium": "existing_approval_path_when_policy_requires",
+      "high": "human_required"
+    },
     "publish": {
       "standingAuthorization": true,
       "scope": [
@@ -257,11 +279,15 @@
         "post"
       ],
       "calendarAuthority": "packages/vfgrowth/CALENDAR.md",
+      "transportBridge": "packages/vfigos/PUBLISH-BRIDGE.json",
+      "transportBridgeRequiredForPrivateAssets": true,
+      "requireOwnerApprovedVisualStandard": true,
       "requirePreflight": true,
       "requireKnownRights": true,
+      "requireContentContract": true,
+      "requireSupportedClaims": true,
       "requireToolReceipt": true,
       "requireLiveVerification": true,
-      "requireOwnerApprovedVisualStandard": true,
       "requireBrandAssetLock": true,
       "requireCreativeTransformationLock": true,
       "requireProjectRequestGate": true
@@ -269,6 +295,7 @@
     "humanRequired": [
       "physical-footage-or-staging",
       "rights-or-privacy-unclear",
+      "unsupported-high-stakes-claim",
       "sale-ils-or-price-change",
       "purchase-or-spend",
       "boost-or-ads",
@@ -308,5 +335,5 @@
     "public-commercial-files-only"
   ],
   "packPrefix": "vf",
-  "notes": "Live Velvet Factory office frontend. Pulls modules/packs from VelvetOS Core. Creative Autopilot is standing-authorized for routine organic Instagram only. Owner-approved grid visual standard is mandatory for public visual QA/preflight."
+  "notes": "Live Velvet Factory office frontend. Pulls modules/packs from VelvetOS Core. Velvet Visual Foundry uses one Creative Manifest plus Creative Director, Brand Guardian and Media Librarian specialists; exception-only and standing-authorized for LOW-risk routine organic Instagram only. Approved private-source derivatives route through the canonical Publish Bridge before Instagram publish. Owner-approved grid visual standard is mandatory for public visual QA/preflight; brand-asset, creative-transformation and project-request gates are fail-closed."
 }

@@ -1,18 +1,12 @@
 {
   "name": "velvetos-velvet-factory-desk",
   "title": "VelvetOS — Velvet Factory (frontend instance)",
-  "updatedAt": "2026-09-14",
+  "updatedAt": "2026-09-26",
   "sourceAgency": ".cursor/agency-agents.json",
   "alwaysOnRule": ".cursor/rules/velvetos-instance-desk.mdc",
   "product": "VelvetOS",
   "instanceId": "velvet-factory",
   "displayName": "VelvetOS — Velvet Factory",
-  "velvetos": {
-    "core": "vendor/velvetos-core",
-    "instance": "INSTANCE.json",
-    "profile": "instance/velvet-factory.json",
-    "docs": "README.md"
-  },
   "ownerApprovedVisualStandard": {
     "required": true,
     "document": "vendor/velvetos-core/packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md",
@@ -24,13 +18,19 @@
     "coldStartGate": "fail_closed",
     "rule": "Load and verify before any visual-content concept/generation; no generic fallback. Product Truth outranks style."
   },
+  "velvetos": {
+    "core": "vendor/velvetos-core",
+    "instance": "INSTANCE.json",
+    "profile": "instance/velvet-factory.json",
+    "docs": "README.md"
+  },
   "notes": [
     "This repo is the Velvet Factory FRONTEND office. Backend kernel = VelvetOS Core (vendor/velvetos-core).",
     "Cold-start visual rule: every social/image/Canva/feed/cover/carousel/Story visual branch loads the owner-approved standard before creative work. Missing/mismatch = fail closed; never fall back to generic model aesthetics.",
     "Run ./scripts/attach-core.sh before relying on packs/modules.",
     "Desk is a curated overlay on The Agency roster. 273 specialists stay installed; only these sit on the studio desk.",
     "Product is VelvetOS; this repo is the Velvet Factory instance. Core modules are always loaded under packages/velvetos/modules/. Other businesses = separate instance repos (REPOS.md).",
-    "HQ sends Gmail and Instagram via tools (constitution/SEND.md). Do not wait for Christian or Grok Bot. Auto-DM and boost stay forbidden. Customer WhatsApp stays human 050-2517000.",
+    "HQ sends Gmail and Instagram via tools (constitution/SEND.md). Do not wait for Christian or Grok Bot. Auto-DM and boost stay forbidden. Customer WhatsApp **send** stays human 050-2517000 (MCP draft/search only).",
     "Do not invent ₪ prices or Insights. Write X ₪ when no verified amount exists.",
     "Do not commit secrets, medical files, or personal Drive folders.",
     "Research overlay @vfdsh maps awesome-dsh-plugin patterns onto existing packs. Do not install DeepSeek Harness.",
@@ -119,6 +119,57 @@
       "note": "Cloud Agent search-designs returned DAGoYmCu4c4. Instagram send: vfigos/SEND.md (tool or Canva+Drive+Gmail failover).",
       "failover": "needsAuth → packages/vfcanva/studio/render.py → Superdesign. Say Canva לא מחובר."
     },
+    "instagram": {
+      "status": "ready",
+      "auth": "ready",
+      "transport": "streamable-http",
+      "remote_access": "ready",
+      "namespace": "instagram",
+      "account": "@velvets_cloud",
+      "igUserId": "17841407772120429",
+      "accountLabel": "velvets_cloud",
+      "mcp": "Cloud Team MCP namespace instagram · adelaidasofia/instagram-mcp",
+      "package": "adelaidasofia-instagram-mcp",
+      "source": "https://github.com/adelaidasofia/instagram-mcp",
+      "useWhen": "vfigos publish (image/carousel/reel/story), vfinsights verified metrics, feed review",
+      "connect": "packages/vfigos/CONNECT-IG.md",
+      "deploy": "packages/vfigos/DEPLOY-CODESPACE.md",
+      "stories": "enabled-same-mcp",
+      "dmEnabled": false,
+      "boostEnabled": false,
+      "notRequired": [
+        "Metricool",
+        "Publer",
+        "Postly",
+        "SimplePost",
+        "Meta Business Suite"
+      ],
+      "allowed": [
+        "healthcheck",
+        "get_profile",
+        "list_media",
+        "get_media",
+        "get_account_insights",
+        "get_media_insights",
+        "get_audience_insights",
+        "publish_image",
+        "publish_video",
+        "publish_reel",
+        "publish_carousel",
+        "publish_story"
+      ],
+      "forbidden": [
+        "send_message",
+        "list_conversations",
+        "get_messages",
+        "send_dm",
+        "auto-dm",
+        "boost",
+        "ads"
+      ],
+      "rule": "Approved public HTTPS media URL → publish_* → verify with list_media/get_media. No invented Insights. No auto-DM. No boost. publish success ≠ liveVerified.",
+      "failover": "MCP down or remote_access pending without live session → Canva export + Drive create_file + Gmail send_message same turn (#ממתין-ל-כלי-IG)"
+    },
     "web": {
       "status": "ready",
       "namespace": "native-cursor",
@@ -171,6 +222,28 @@
       "useWhen": "vfprod concept mesh: text/image → STL/3MF after lead approval. Playbook: packages/vfprod/3DAISTUDIO.md",
       "rule": "No API key in git. No invented ₪ from credits. No print from HQ. Same license gate as Meshy/Tripo.",
       "failover": "Site UI + Drive create_file / upload + continue. Open license search if vendor down. Never invent a key or mesh."
+    },
+    "studiomcphub": {
+      "status": "needsAuth",
+      "namespace": "studiomcphub",
+      "mcp": "https://studiomcphub.com/mcp",
+      "useWhen": "Core print-file tools. VF: remove_background / resize only. Playbook: packages/vfmcp/CONNECT-STUDIOHUB.md",
+      "rule": "Free tools unless lead seat. No wallet/x402 in git. No NFT. VF skips print_ready/CMYK. HQ does not print. No invented ₪.",
+      "failover": "Canva / packages/vfcanva/studio/render.py / 3DAI + vfprod/PREFLIGHT.md"
+    },
+    "mcp-gsheets": {
+      "status": "desktop-credentials",
+      "namespace": "mcp-gsheets",
+      "useWhen": "Cell-level ledger after packages/vfmcp/CONNECT-SHEETS.md. VF IDs in office/ledger/bindings.json",
+      "rule": "No service-account JSON in git. No invented ₪. Without Connect write חסר גיליון.",
+      "failover": "python3 scripts/vf_office.py jobs + Drive exportMimeType=text/csv"
+    },
+    "whatsapp": {
+      "status": "desktop-optional",
+      "namespace": "whatsapp",
+      "useWhen": "Search/draft on the studio phone after packages/vfmcp/CONNECT-WHATSAPP.md",
+      "rule": "VF send stays human 050-2517000. send=false. No Infobip/ManyChat auto-send.",
+      "failover": "python3 scripts/vf_office.py convert draft + wa.me"
     }
   },
   "seats": [
@@ -218,9 +291,10 @@
       ],
       "tools": [
         "gmail",
-        "drive"
+        "drive",
+        "whatsapp"
       ],
-      "decides": "inquiry brief, quote draft, copy. Does not send."
+      "decides": "inquiry brief, quote draft, copy. Does not send WhatsApp."
     },
     {
       "id": "growth",
@@ -245,10 +319,11 @@
         "superdesign",
         "drive",
         "canva",
+        "instagram",
         "image",
         "web"
       ],
-      "decides": "content concept/edit/cover/feed planning under current Creative Autonomy; publish only after canonical gates and real-tool verification. Owner-approved visual standard is mandatory."
+      "decides": "content concept/edit/cover/feed planning under current Creative Autonomy; publish via Instagram MCP (adelaidasofia) only after canonical gates and real-tool verification. Owner-approved visual standard is mandatory. VF publication follows VF_PUBLICATION_ROUTE_V1 (Canva/vfcanva denied). Grok is optional backup."
     },
     {
       "id": "ops",
@@ -266,9 +341,10 @@
       ],
       "tools": [
         "gmail",
-        "drive"
+        "drive",
+        "mcp-gsheets"
       ],
-      "decides": "cost factors, ledger reads, locked B2B. No invented prices."
+      "decides": "cost factors, ledger reads, business decisions. No invented prices."
     },
     {
       "id": "production",
@@ -290,7 +366,8 @@
         "drive",
         "calendar",
         "web",
-        "threedaistudio"
+        "threedaistudio",
+        "studiomcphub"
       ],
       "decides": "print feasibility, queue, SKU, file license"
     }
@@ -430,7 +507,7 @@
         "vfmskill"
       ],
       "tools": [],
-      "job": "Hebrew spoken-voice copy. WhatsApp CTA, not Send DM."
+      "job": "Hebrew spoken-voice copy. Instagram-message PUBLIC_CURRENT_CTA, not bare Send DM / WhatsApp phone."
     },
     {
       "slug": "brand-guardian",
@@ -552,7 +629,7 @@
         "vfbiz"
       ],
       "tools": [],
-      "job": "Studio strategy. B2B logos/QR/napkins stay locked until lead seat opens them."
+      "job": "Studio strategy and commercial decisions. Customer type and quantity are job attributes, not a service category."
     },
     {
       "slug": "studio-producer",
@@ -616,6 +693,7 @@
     ".cursor/skills/vf-morning-brief/SKILL.md",
     ".cursor/skills/vf-inquiry-chain/SKILL.md",
     ".cursor/skills/vf-content-sprint/SKILL.md",
+    ".cursor/skills/vf-hebrew-copy/SKILL.md",
     ".cursor/skills/vf-marketing-skills/SKILL.md",
     ".cursor/skills/vf-makers/SKILL.md",
     ".cursor/skills/vf-openmontage/SKILL.md",

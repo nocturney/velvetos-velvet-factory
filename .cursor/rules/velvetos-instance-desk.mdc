@@ -5,6 +5,11 @@ alwaysApply: true
 
 # VelvetOS — Velvet Factory
 
+## VF_PUBLICATION_ROUTE_V1 - current publication scope
+
+For Velvet Factory publication tasks, use `packages/vfom/PUBLICATION-PREP-EXECUTION.md` and the `publicationRoute` in `packages/vfom/VISUAL-STANDARD-ENFORCEMENT.json`. Canva/vfcanva are forbidden in this scope; provider notes labelled LEGACY below are not executable routes for VF. Other businesses and non-publication uses are unchanged.
+Run `scripts/vf_publication_evidence.py --phase production` before production and `--phase delivery` before review delivery, with the exact manifest/content ID. A file-path or static wiring pass is not creative approval. Preserve source pixels, purposeful editorial richness and independent source/reference/copy/brand/final review evidence.
+
 You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/velvetos-core` (VelvetOS Core).
 
 - Attach core: `./scripts/attach-core.sh` (Cloud Agent: auto via `.cursor/environment.json` `install`).
@@ -12,9 +17,11 @@ You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/v
 - Profile: `instance/velvet-factory.json`.
 - HQ sends Gmail/IG via real tools (`vendor/velvetos-core/constitution/SEND.md`).
 - No invented ₪ / Insights. No auto-DM, Boost/Ads without lead, customer WhatsApp send, or Print from HQ.
-- Public CTA follows the current Core contract: Instagram message to `@velvets_cloud` + pickup Sderot. WhatsApp `050-2517000` is a business-contact record, not the public CTA.
+- **PUBLIC_CURRENT_CTA** follows the current Core contract: Instagram message to `@velvets_cloud` + pickup Sderot. WhatsApp `050-2517000` = BUSINESS_CONTACT_RECORD only, not the public CTA.
 
 ## COLD-START VISUAL STANDARD GATE — ALWAYS REQUIRED
+
+Scope (VF_PUBLICATION_ROUTE_V1): for VF publication the executable route is the publication route above and Canva/vfcanva are denied tools. Canva mentions in this section are the reference-asset identity and hard-reject IDs, never a provider route. The cold-start standard itself stays fail-closed (Core `scripts/check-visual-standard-bootstrap.py`).
 
 For **any** request involving Instagram content, social content, image selection/editing, Canva, post, carousel, Story still, Reel cover, feed/grid planning, product showcase, service/editorial creative, visual QA or publish preflight, you MUST load these Core authorities **before proposing or generating creative**:
 
@@ -26,7 +33,7 @@ For **any** request involving Instagram content, social content, image selection
 
 Canonical approved visual reference: Canva asset `MAHVL7PKpvE`, SHA-256 `df41281b44e2c1ac99a1cb0c9f084ec926c30774f61468fc8988f59c5a136897`.
 
-This is a **bootstrap invariant, not optional inspiration**. A new conversation with no prior chat context must still inherit it. If the standard cannot be loaded or its configured identity does not match, stop the creative branch as `visual_standard_unavailable`; do not silently fall back to generic 3D-print, stock, template or model-default aesthetics.
+This is a **bootstrap invariant, not optional inspiration**. A new conversation with no prior chat context must still inherit it. If the standard cannot be loaded or its configured identity does not match, stop the creative branch as `visual_standard_unavailable`; do not silently fall back to generic 3D-print, stock, template or model-default aesthetics. Product Truth from real source media outranks style.
 
 Required direction: product-first, real photography as the truth anchor, `Retouch the photo, not the product`, minimal Hebrew typography, premium/non-template editorial finish, photo-first service communication, curated recipe diversity and exact-final QA.
 
@@ -34,19 +41,21 @@ Hard rejects: placeholders presented as finals; generic icons replacing real pro
 
 Product Truth / source evidence / rights / constitution always outrank style. The approved reference defines the quality floor and visual language; it never authorizes false representation of the physical product.
 
+## Publication-prep execution gate
+
+For Velvet Factory requests that mean prepare/treat/edit content for a potential publication, `packages/vfom/PUBLICATION-PREP-EXECUTION.md` is mandatory. This is an execution task: when usable images and an editing capability exist, selection/caption/planning alone is incomplete. Produce at least one real edited visual artifact, preserve Product Truth, run exact-final visual QA, and only then package copy for owner review. If visual execution is unavailable, fail closed as `visual_execution_unavailable`; never claim ready from raw photos plus copy. Resolve public CTA from current authority; never hardcode the business WhatsApp number into public content from memory.
+
 ## BRAND ASSET + PUBLIC CTA LOCK — ALWAYS REQUIRED
 
-For every Velvet Factory public creative, load `vendor/velvetos-core/packages/vfom/BRAND-ASSET-LOCK.md`. Never invent, redraw, approximate or ask a generative model to render a Velvet Factory logo/wordmark/emblem. Generative base frames must contain **NO LOGO · NO WORDMARK · NO PHONE NUMBER · NO WHATSAPP · NO CONTACT BAR**. If no exact owner-approved logo asset is available to the job, use no logo; if one is available, composite that exact asset deterministically after generation/editing. `050-2517000` remains BUSINESS_CONTACT_RECORD only and is forbidden in public creative/caption unless Christian explicitly requests that exact public use in the current task. Missing brand lock fails closed.
+For every Velvet Factory public creative, load `vendor/velvetos-core/packages/vfom/BRAND-ASSET-LOCK.md`. Never invent, redraw, approximate or ask a generative model to render a Velvet Factory logo/wordmark/emblem or logo-like brand lockup. Generative base frames/prompts must explicitly contain **NO LOGO · NO WORDMARK · NO PHONE NUMBER · NO WHATSAPP · NO CONTACT BAR**. If no exact owner-approved logo asset is available to the job, use no logo; if one is available, composite that exact asset deterministically after generation/editing. Public CTA must resolve from `constitution/PUBLIC_CTA.md`. `050-2517000` remains BUSINESS_CONTACT_RECORD only and is forbidden in public creative/caption unless Christian explicitly requests that exact public use in the current task. Missing brand lock fails closed.
 
 ## CREATIVE TRANSFORMATION LOCK — ALWAYS REQUIRED
 
-For publication-prep, load `vendor/velvetos-core/packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md`. Preserve the real product but materially transform its presentation. Default to editing the real source image/reference, not recreating the product from text. Raw-photo/resize-only/crop+exposure-only carousel fallback is forbidden. Multiple source photos do not imply a carousel. If a carousel is chosen, slide 1 must be a fully treated hero at the approved Velvet quality bar. Require `creative_delta_gate=PASS`, `raw_passthrough=false`, source-grounded edit mode and concrete hero transformation evidence.
-
-
+For publication-prep, load `vendor/velvetos-core/packages/vfom/CREATIVE-TRANSFORMATION-LOCK.md`. Preserve the real product but materially transform its presentation; do not pass through raw/source photos as the finished creative. At least one review visual — normally the hero/first slide — must show a meaningful approved Velvet treatment around the source-locked product. Default to editing the real source image/reference, not recreating the product from text. Raw-photo/resize-only/crop+exposure-only carousel fallback is forbidden. Multiple source photos do not imply a carousel. If a carousel is chosen, slide 1 must be a fully treated hero at the approved Velvet quality bar. `raw_passthrough=true`, an essentially untouched source carousel, or crop/exposure-only work presented as publication-grade is FAIL. Require `creative_delta_gate=PASS`, `raw_passthrough=false`, source-grounded edit mode and concrete hero transformation evidence. Generative edits must explicitly contain NO LOGO, NO WORDMARK, NO PHONE NUMBER, NO WHATSAPP, NO CONTACT BAR, NO GENERATED HEBREW TEXT.
 
 ## UNIVERSAL PROJECT REQUEST GATE — ALWAYS REQUIRED
 
-Before substantive work on **any** Velvet Factory request, load `vendor/velvetos-core/packages/velvetos/PROJECT-REQUEST-GATE.md` and resolve `vendor/velvetos-core/packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json`. Classify the request, route only the relevant packs/skills/Sources of Truth, resolve hard constraints, and require `project_preflight: PASS` before execution. Missing/stale/conflicting mandatory authority is fail-closed; do not use generic model behavior or memory from another chat as fallback. Exact-result postflight is mandatory before claiming done/ready/published/synced.
+Before substantive work on **any** Velvet Factory request, load `vendor/velvetos-core/packages/velvetos/PROJECT-REQUEST-GATE.md` and resolve `vendor/velvetos-core/packages/velvetos/PROJECT-AUTHORITY-MANIFEST.json`. The gate classifies the request, routes only the relevant packs/skills/Sources of Truth, checks hard constraints and requires `project_preflight: PASS` before execution. Missing/stale/conflicting mandatory authority is fail-closed; do not fall back to generic model behavior or memory from another chat. After execution, run the routed domain postflight on the exact final artifact/provider result; exact-result postflight is mandatory before claiming done/ready/published/synced.
 
 ## OFFERING SHAPE — ALWAYS REQUIRED
 

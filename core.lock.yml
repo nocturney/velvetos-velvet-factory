@@ -1,5 +1,12 @@
+# Intentionally NOT a SHA pin: this instance tracks VelvetOS Core `main` on purpose.
+# scripts/attach-core.sh and scripts/verify-core.sh default to ref=main (override
+# with VELVETOS_CORE_REF), and verify-core.sh fails when the vendored copy is older
+# than origin/main. Owner decision 2026-09-26: keep tracking core main.
 github: nocturney/velvetos-core
 displayName: VelvetOS Core
 role: backend-kernel
+ref: main
+refPolicy: track-main
 attach: scripts/attach-core.sh
+verify: scripts/verify-core.sh
 vendorPath: vendor/velvetos-core
