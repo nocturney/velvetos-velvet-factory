@@ -220,7 +220,6 @@
       "portablePrompt": "packages/vfom/VELVET-VISUAL-SYSTEM-PROMPT.md",
       "referenceAsset": "packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg",
       "publicReferenceUrl": "https://raw.githubusercontent.com/nocturney/velvetos-core/main/packages/vfom/reference/velvet-approved-grid-2026-09-14.jpg",
-      "canvaAssetId": "MAHVL7PKpvE",
       "artifactSha256": "df41281b44e2c1ac99a1cb0c9f084ec926c30774f61468fc8988f59c5a136897",
       "coldStartGate": "fail_closed",
       "requiredFor": [
@@ -241,8 +240,7 @@
         "subject-drift",
         "fake-customer-scene",
         "generic-template-card",
-        "stock-filler",
-        "rejected-g004-canva-DAHUaelaug0"
+        "stock-filler"
       ]
     },
     "orchestration": "packages/vfom/CREATIVE-AUTOPILOT.md",

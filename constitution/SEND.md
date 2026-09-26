@@ -5,7 +5,6 @@
 
 ## לפני שיבוץ / Publish
 
-1. ארטיפקט PREFLIGHT v2 כתוב (`vfgrowth/PREFLIGHT.md`) — VOICE + Canva/vfcovers + Rubric + Brand Guardian + QA final render.
 2. שער עריכה (`EDIT-GATE.md`) — לא JPEG גולמי.
 3. לסטורי: `copy_qa`, `brand_guardian`, `readability`, `contrast` חייבים להיות `PASS`; אין waiver לניגודיות חלשה.
 4. ה־PREFLIGHT חייב לכלול `artifact_digest` ו־`final_package_sha256` של החבילה הסופית המדויקת. שינוי אחרי אישור מבטל אותו.

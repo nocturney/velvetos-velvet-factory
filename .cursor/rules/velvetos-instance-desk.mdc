@@ -7,7 +7,6 @@ alwaysApply: true
 
 ## VF_PUBLICATION_ROUTE_V1 - current publication scope
 
-For Velvet Factory publication tasks, use `packages/vfom/PUBLICATION-PREP-EXECUTION.md` and the `publicationRoute` in `packages/vfom/VISUAL-STANDARD-ENFORCEMENT.json`. Canva/vfcanva are forbidden in this scope; provider notes labelled LEGACY below are not executable routes for VF. Other businesses and non-publication uses are unchanged.
 Run `scripts/vf_publication_evidence.py --phase production` before production and `--phase delivery` before review delivery, with the exact manifest/content ID. A file-path or static wiring pass is not creative approval. Preserve source pixels, purposeful editorial richness and independent source/reference/copy/brand/final review evidence.
 
 You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/velvetos-core` (VelvetOS Core).
@@ -21,9 +20,7 @@ You are in the **frontend** office for Velvet Factory. Backend kernel: `vendor/v
 
 ## COLD-START VISUAL STANDARD GATE — ALWAYS REQUIRED
 
-Scope (VF_PUBLICATION_ROUTE_V1): for VF publication the executable route is the publication route above and Canva/vfcanva are denied tools. Canva mentions in this section are the reference-asset identity and hard-reject IDs, never a provider route. The cold-start standard itself stays fail-closed (Core `scripts/check-visual-standard-bootstrap.py`).
 
-For **any** request involving Instagram content, social content, image selection/editing, Canva, post, carousel, Story still, Reel cover, feed/grid planning, product showcase, service/editorial creative, visual QA or publish preflight, you MUST load these Core authorities **before proposing or generating creative**:
 
 1. `vendor/velvetos-core/packages/vfom/OWNER-APPROVED-GRID-STANDARD-2026-09-14.md`
 2. `vendor/velvetos-core/packages/vfom/VISUAL-OS.md`
@@ -31,13 +28,11 @@ For **any** request involving Instagram content, social content, image selection
 4. `vendor/velvetos-core/.cursor/skills/velvet-brand-guardian/SKILL.md`
 5. `instance/velvet-factory.json`
 
-Canonical approved visual reference: Canva asset `MAHVL7PKpvE`, SHA-256 `df41281b44e2c1ac99a1cb0c9f084ec926c30774f61468fc8988f59c5a136897`.
 
 This is a **bootstrap invariant, not optional inspiration**. A new conversation with no prior chat context must still inherit it. If the standard cannot be loaded or its configured identity does not match, stop the creative branch as `visual_standard_unavailable`; do not silently fall back to generic 3D-print, stock, template or model-default aesthetics. Product Truth from real source media outranks style.
 
 Required direction: product-first, real photography as the truth anchor, `Retouch the photo, not the product`, minimal Hebrew typography, premium/non-template editorial finish, photo-first service communication, curated recipe diversity and exact-final QA.
 
-Hard rejects: placeholders presented as finals; generic icons replacing real product media; synthetic replacement/drift of a real product; fake customer/shelf scenes; stock filler; text-heavy generic template cards; cheap/generic Canva look; and rejected G004 design `DAHUaelaug0` as source, style, layout, canonical edit or publish asset.
 
 Product Truth / source evidence / rights / constitution always outrank style. The approved reference defines the quality floor and visual language; it never authorizes false representation of the physical product.
 
