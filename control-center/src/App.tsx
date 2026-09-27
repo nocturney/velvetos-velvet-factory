@@ -8,7 +8,8 @@ import type { ControlSnapshot, ViewId } from "./types";
 
 const views: { id: ViewId; label: string }[] = [
   { id: "overview", label: "Overview" }, { id: "studio", label: "Studio" },
-  { id: "sales", label: "Sales" }, { id: "media", label: "Media" }, { id: "system", label: "System" },
+  { id: "sales", label: "Sales" }, { id: "media", label: "Media" },
+  { id: "tools", label: "Tools" }, { id: "system", label: "System" },
 ];
 
 export default function App() {
