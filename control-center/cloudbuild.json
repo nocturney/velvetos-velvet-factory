@@ -1,0 +1,12 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "args": ["build", "-t", "${_IMAGE}", "-f", "control-center/Dockerfile", "control-center"]
+    }
+  ],
+  "images": ["${_IMAGE}"],
+  "substitutions": {
+    "_IMAGE": "gcr.io/$PROJECT_ID/velvetos-control-center:$SHORT_SHA"
+  }
+}
