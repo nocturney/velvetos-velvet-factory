@@ -12,9 +12,9 @@ const selector = (domain: string) => (snapshot: Parameters<typeof selectDomain>[
 const visible = () => true;
 
 export const moduleRegistry: ControlCenterModuleDefinition[] = [
-  { ...base, id: "attention", title: "Owner Attention", domain: "attention", defaultView: "overview", views: ["overview"], defaultSize: { cols: 5, rows: 4 }, priority: 100, visualRole: "primary", select: selector("attention"), isAvailable: visible, component: AttentionModule },
-  { ...base, id: "jobs", title: "Sales & Jobs", domain: "jobs", defaultView: "overview", views: ["overview", "sales"], defaultSize: { cols: 7, rows: 4 }, priority: 90, visualRole: "operational", select: selector("jobs"), isAvailable: visible, component: JobsModule },
-  { ...base, id: "activity", title: "Activity", domain: "activity", defaultView: "overview", views: ["overview", "studio"], defaultSize: { cols: 4, rows: 4 }, priority: 80, visualRole: "visual", select: selector("activity"), isAvailable: visible, component: ActivityModule },
+  { ...base, id: "attention", title: "Owner Attention", domain: "attention", defaultView: "overview", views: ["overview"], defaultSize: { cols: 5, rows: 3 }, priority: 100, visualRole: "primary", select: selector("attention"), isAvailable: visible, component: AttentionModule },
+  { ...base, id: "jobs", title: "Sales & Jobs", domain: "jobs", defaultView: "overview", views: ["overview", "sales"], defaultSize: { cols: 7, rows: 3 }, priority: 90, visualRole: "operational", select: selector("jobs"), isAvailable: visible, component: JobsModule },
+  { ...base, id: "activity", title: "Activity", domain: "activity", defaultView: "overview", views: ["overview", "studio"], defaultSize: { cols: 4, rows: 3 }, priority: 80, visualRole: "visual", select: selector("activity"), isAvailable: visible, component: ActivityModule },
   { ...base, id: "capabilities", title: "Capabilities", domain: "capabilities", defaultView: "system", views: ["overview", "system"], defaultSize: { cols: 8, rows: 3 }, priority: 70, visualRole: "system", select: selector("capabilities"), isAvailable: visible, component: CapabilitiesModule },
   { ...base, id: "system", title: "System Health", domain: "system", defaultView: "system", views: ["overview", "system"], defaultSize: { cols: 8, rows: 3 }, priority: 60, visualRole: "system", select: selector("system"), isAvailable: visible, component: SystemModule },
 ];
