@@ -15,6 +15,7 @@ This file is the **guide for this business office**. Core laws still win for sen
 ## RULES (instance)
 
 - Pull packs and modules from **VelvetOS Core** (`vendor/velvetos-core`). Do not duplicate the pack tree.
+- CAD/fabrication requests must resolve `vendor/velvetos-core/packages/vfprod/FABRICATION-ROUTER.md` first via `vendor/velvetos-core/scripts/vf_fabrication_router.py decide --request ...`, then load the selected pinned skill from `vendor/velvetos-core/.agents/skills/<skill>/SKILL.md`. Prefer the smallest correct chain; no printer upload/start/control from this route.
 - Studio facts: `constitution/STUDIO.md` + `instance/velvet-factory.json`.
 - HQ sends Gmail via the connected mail path. Scheduled Instagram publication uses the Cloudflare Instagram Publisher; organic publication targets Meta Instagram Graph API; live status requires Graph/MCP read-back (`vendor/velvetos-core/packages/vfigos/SEND.md`). Never claim a send/publish without receipt/evidence. OpenPost is frozen; executable tool status is `vendor/velvetos-core/packages/velvetos/TOOL-STATUS.json`.
 - Christian surface: decisions / hard blockers / live publish needing him only. Preflight (`vfgrowth/PREFLIGHT.md`) fail-closes schedule. Never «רמה נמוכה» upward.
