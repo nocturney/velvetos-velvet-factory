@@ -1,0 +1,37 @@
+name: Control Center CI
+
+on:
+  pull_request:
+    paths:
+      - "control-center/**"
+      - ".github/workflows/control-center-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "control-center/**"
+      - ".github/workflows/control-center-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: control-center
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "node"
+          cache: npm
+          cache-dependency-path: control-center/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify no browser-secret env contract
+        run: |
+          ! grep -R "VELVETOS_CONTROL_API_TOKEN" dist
+          ! grep -R "X-VelvetOS-Token" dist
