@@ -20,7 +20,7 @@ function allowedApiPath(pathname) {
 }
 
 async function cloudRunIdentityToken() {
-  if (!process.env.K_SERVICE || !audience) return "";
+  if (!audience || process.env.VELVETOS_USE_GCP_IDENTITY !== "1") return "";
   const url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=" +
     encodeURIComponent(audience) + "&format=full";
   const response = await fetch(url, { headers: { "Metadata-Flavor": "Google" } });
