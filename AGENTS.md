@@ -39,15 +39,15 @@ Canonical approved visual reference (`Velvet Factory · APPROVED GRID VISUAL STA
 
 The approved grid standard is the required visual-language and quality floor for feed posts, Reel covers, carousel pages, Story stills, service/editorial tiles and grid planning. It is **not** permission to alter real products: Product Truth, real source evidence, constitution and rights always win.
 
-Required direction: product-first, real photography as truth anchor, `Retouch the photo, not the product`, minimal Hebrew typography, premium/non-template editorial finish, photo-first service communication, curated recipe diversity (hero / UGC-human / macro-detail / minimal-studio / bundle-flatlay / service-editorial / proof-process), coherent feed treatment and exact-final QA.
+Required direction: product-first, real photography as truth anchor, `Retouch the photo, not the product`, rich editorial Hebrew typography within the 2026-09-28 owner amendment limits (headline + accent rule + one-line subhead, max 3 chips, max 3 insets, never covering or overpowering the product), premium/non-template editorial finish, photo-first service communication, curated recipe diversity (hero / UGC-human / macro-detail / minimal-studio / bundle-flatlay / service-editorial / proof-process), coherent feed treatment and exact-final QA.
 
-Hard rejects include placeholders presented as finals, generic icons replacing product photography, synthetic replacement/drift of a real product, fake customer/shelf scenes, stock filler, text-heavy generic template cards and rejected G004 design `DAHUaelaug0` (legacy Canva design ID) as source/style/layout/canonical edit/publish asset.
+Hard rejects include placeholders presented as finals, generic icons replacing product photography, synthetic replacement/drift of a real product, fake customer/shelf scenes, stock filler, generic template cards, text that covers or overpowers the product and rejected G004 design `DAHUaelaug0` (legacy Canva design ID) as source/style/layout/canonical edit/publish asset.
 
 Any tool or agent that selects media, retouches, designs, builds covers/carousels/stories, plans the grid, runs Brand Guardian/QA or prepares publish preflight must apply this standard before output can PASS. This is a cold-start invariant: a fresh conversation with no previous chat context must still load and verify the standard before creative work without relying on chat history; missing or mismatched binding stops the creative branch as `visual_standard_unavailable` instead of falling back to generic/default model aesthetics. Real product source media remains Product Truth.
 
 ## CREATIVE AUTOPILOT
 
-This instance enables `creativeAutonomy.mode=exception-only` with standing authorization for routine organic Instagram publishing.
+This instance enables `creativeAutonomy.mode=exception-only`. For routine organic Instagram publishing, the instance projects standing authorization into the runtime, but the executable decision is owned by `policy_id: instagram.publish`; only an evaluator result of `ALLOW` may reach the publish mutation.
 
 Use Core:
 
