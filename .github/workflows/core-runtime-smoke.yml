@@ -64,6 +64,10 @@ jobs:
           ref: main
           path: vendor/velvetos-core
           token: ${{ secrets.VELVETOS_CORE_READ_TOKEN }}
+          # Full history, same as Core's own check-all CI: some Core sensors
+          # (e.g. check-zero-cost-final-acceptance.py) verify recorded commits
+          # are ancestors of HEAD, which a depth-1 clone cannot answer.
+          fetch-depth: 0
 
       - name: Attach and verify current Core main
         run: bash scripts/attach-core.sh
