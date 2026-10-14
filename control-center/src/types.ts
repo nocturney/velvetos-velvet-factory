@@ -4,7 +4,7 @@ export type CollectionState =
   | "ready" | "unavailable" | "degraded" | "needs_sync" | "conflict" | "unknown";
 export type Freshness = "live" | "fresh" | "stale" | "unknown";
 export type VisualRole = "primary" | "operational" | "visual" | "system" | "assistant";
-export type ViewId = "overview" | "studio" | "sales" | "media" | "system";
+export type ViewId = "overview" | "studio" | "sales" | "media" | "system" | "fleet";
 
 export interface Collection<T = unknown> {
   state: CollectionState;
