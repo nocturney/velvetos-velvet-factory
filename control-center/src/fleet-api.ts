@@ -23,6 +23,10 @@ export interface FleetMachinesSnapshot {
   fetchedAt: string;
   count: number;
   machines: FleetMachine[];
+  // Set only for validated, short-TTL external read replica, never live Fleet RPC.
+  transport?: "signed_snapshot";
+  validUntil?: string;
+  signatureKeyId?: string;
 }
 
 export async function getFleetMachines(signal?: AbortSignal): Promise<FleetMachinesSnapshot> {

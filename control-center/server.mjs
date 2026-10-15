@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectFleetMachines } from "./fleet-projection.mjs";
+import { makeSignedFleetSource } from "./fleet-snapshot-source.mjs";
 import { proxyControlRequest } from "./control-proxy-boundary.mjs";
 
 const root = fileURLToPath(new URL("./dist/", import.meta.url));
@@ -10,6 +11,7 @@ const port = Number(process.env.PORT || 8080);
 const bindHost = process.env.HOST || "0.0.0.0";
 const fleetOriginEnv = process.env.VELVETOS_FLEET_API_URL || "";
 const fleetReadToken = process.env.VELVETOS_FLEET_READONLY_TOKEN || "";
+const signedFleetSource = makeSignedFleetSource(process.env, { bindHost });
 
 // Intentionally isolated first integration: loopback-only control plane and
 // the existing Fleet read-only viewer role. Remote writes remain blocked.
@@ -31,10 +33,17 @@ function isLocalRequest(req) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
 }
 
-async function fleetMachines(req, res, pathname) {
+async function fleetMachines(req, res, url) {
   if (req.method !== "GET") return json(res, 405, { error: "method_not_allowed" });
-  if (pathname !== "/api/fleet/v1/machines")
+  if (url.pathname !== "/api/fleet/v1/machines")
     return json(res, 404, { error: "not_found" });
+  if (url.search) return json(res, 400, { error: "unexpected_query" });
+  if (signedFleetSource) {
+    // Verified source only: never fall back to another Fleet source if stale,
+    // malformed, unreachable, unsigned or failed to authenticate.
+    try { return json(res, 200, await signedFleetSource()); }
+    catch { return json(res, 503, { error: "fleet_snapshot_unavailable" }); }
+  }
   if (!isLocalRequest(req)) return json(res, 403, { error: "local_only" });
   const origin = localFleetOrigin();
   if (!origin) return json(res, 503, { error: "fleet_not_configured" });
@@ -140,7 +149,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (url.pathname.startsWith("/api/control/")) return await proxyControl(req, res, url);
-    if (url.pathname.startsWith("/api/fleet/")) return await fleetMachines(req, res, url.pathname);
+    if (url.pathname.startsWith("/api/fleet/")) return await fleetMachines(req, res, url);
     if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "method_not_allowed" });
     return await staticFile(res, url.pathname);
   } catch {
