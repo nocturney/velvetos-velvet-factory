@@ -9,6 +9,8 @@ import { RuntimeModule } from "./modules/RuntimeModule";
 import { SourcesModule } from "./modules/SourcesModule";
 import { SystemModule } from "./modules/SystemModule";
 import { ToolsModule } from "./modules/ToolsModule";
+import { ProductionOverviewModule } from "./modules/ProductionOverviewModule";
+import { ModelShelfModule } from "./modules/ModelShelfModule";
 
 const states = ["ready", "unavailable", "degraded", "needs_sync", "conflict", "unknown"] as const;
 const base = { allowedCollectionStates: states, actions: [] as const, showProvenance: true, showFreshness: true };
@@ -29,6 +31,9 @@ export const moduleRegistry: ControlCenterModuleDefinition[] = [
 
   { ...base, id: "integrations", title: "Integration Registry", domain: "integrations", defaultView: "tools", views: ["tools"], defaultSize: { cols: 16, rows: 7 }, priority: 110, visualRole: "operational", select: selectIntegrations, isAvailable: visible, component: IntegrationsModule },
   { ...base, id: "tools-all", title: "Tool & Capability Matrix", domain: "capabilities", defaultView: "tools", views: ["tools"], defaultSize: { cols: 16, rows: 8 }, priority: 100, visualRole: "primary", select: capabilitySelector(), isAvailable: visible, component: ToolsModule },
+
+  { ...base, id: "production-status", title: "Printers & Recorded Print Events", domain: "production", defaultView: "production", views: ["production"], defaultSize: { cols: 10, rows: 7 }, priority: 100, visualRole: "operational", select: selector("production"), isAvailable: visible, component: ProductionOverviewModule },
+  { ...base, id: "production-shelf", title: "Model Shelf", domain: "models", defaultView: "production", views: ["production"], defaultSize: { cols: 6, rows: 7 }, priority: 90, visualRole: "system", select: selector("models"), isAvailable: visible, component: ModelShelfModule },
 
   { ...base, id: "sources", title: "Canonical Sources", domain: "collections", defaultView: "system", views: ["system"], defaultSize: { cols: 8, rows: 4 }, priority: 90, visualRole: "system", select: selectSources, isAvailable: visible, component: SourcesModule },
   { ...base, id: "runtime", title: "Runtime & Sensors", domain: "runtime", defaultView: "system", views: ["system"], defaultSize: { cols: 8, rows: 4 }, priority: 85, visualRole: "system", select: selectRuntime, isAvailable: visible, component: RuntimeModule },

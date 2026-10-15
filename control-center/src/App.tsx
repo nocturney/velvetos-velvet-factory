@@ -7,7 +7,7 @@ import { ModuleErrorBoundary } from "./ModuleErrorBoundary";
 import type { ControlSnapshot, ViewId } from "./types";
 
 const views: { id: ViewId; label: string }[] = [
-  { id: "overview", label: "Overview" }, { id: "studio", label: "Studio" },
+  { id: "overview", label: "Overview" }, { id: "studio", label: "Studio" }, { id: "production", label: "Production" },
   { id: "sales", label: "Sales" }, { id: "media", label: "Media" },
   { id: "tools", label: "Tools" }, { id: "system", label: "System" },
 ];

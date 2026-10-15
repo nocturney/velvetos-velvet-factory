@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "start": "node server.mjs",
     "test": "vitest run",
-    "smoke:host": "node scripts/smoke-host.mjs"
+    "smoke:host": "node scripts/smoke-host.mjs",
+    "smoke:production": "node scripts/smoke-production.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
