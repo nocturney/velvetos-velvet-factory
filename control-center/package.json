@@ -11,7 +11,8 @@
     "smoke:host": "node scripts/smoke-host.mjs",
     "smoke:mobile": "node scripts/mobile-shell.qa.mjs",
     "smoke:truth": "node scripts/snapshot-truth.qa.mjs",
-    "smoke:office": "node scripts/smoke-office.mjs"
+    "smoke:office": "node scripts/smoke-office.mjs",
+    "smoke:production": "node scripts/smoke-production.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
