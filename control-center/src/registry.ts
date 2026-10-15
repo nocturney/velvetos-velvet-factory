@@ -13,6 +13,8 @@ import { ToolsModule } from "./modules/ToolsModule";
 import { FleetModule } from "./modules/FleetModule";
 import { OfficeDeskModule } from "./modules/OfficeDeskModule";
 import { OfficePolicyModule } from "./modules/OfficePolicyModule";
+import { ProductionOverviewModule } from "./modules/ProductionOverviewModule";
+import { ModelShelfModule } from "./modules/ModelShelfModule";
 
 const states = ["ready", "unavailable", "degraded", "needs_sync", "conflict", "unknown"] as const;
 const base = { allowedCollectionStates: states, actions: [] as const, showProvenance: true, showFreshness: true };
@@ -36,6 +38,8 @@ export const moduleRegistry: ControlCenterModuleDefinition[] = [
 
   { ...base, id: "office-desk", title: "Office Specialist Roster", domain: "agents", defaultView: "office", views: ["office"], defaultSize: { cols: 10, rows: 6 }, priority: 100, visualRole: "operational", select: selector("agents"), isAvailable: visible, component: OfficeDeskModule },
   { ...base, id: "office-policy", title: "Office Policy & Source Map", domain: "office-policy", defaultView: "office", views: ["office"], defaultSize: { cols: 6, rows: 6 }, priority: 90, visualRole: "system", select: selectOfficePolicy, isAvailable: visible, component: OfficePolicyModule },
+  { ...base, id: "production-status", title: "Printers & Recorded Print Events", domain: "production", defaultView: "production", views: ["production"], defaultSize: { cols: 10, rows: 7 }, priority: 100, visualRole: "operational", select: selector("production"), isAvailable: visible, component: ProductionOverviewModule },
+  { ...base, id: "production-shelf", title: "Model Shelf", domain: "models", defaultView: "production", views: ["production"], defaultSize: { cols: 6, rows: 7 }, priority: 90, visualRole: "system", select: selector("models"), isAvailable: visible, component: ModelShelfModule },
 
   { ...base, id: "sources", title: "Canonical Sources", domain: "collections", defaultView: "system", views: ["system"], defaultSize: { cols: 8, rows: 4 }, priority: 90, visualRole: "system", select: selectSources, isAvailable: visible, component: SourcesModule },
   { ...base, id: "runtime", title: "Runtime & Sensors", domain: "runtime", defaultView: "system", views: ["system"], defaultSize: { cols: 8, rows: 4 }, priority: 85, visualRole: "system", select: selectRuntime, isAvailable: visible, component: RuntimeModule },
