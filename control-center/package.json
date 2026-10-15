@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "start": "node server.mjs",
     "test": "vitest run && node --test scripts/fleet-proxy.node.mjs",
-    "smoke:host": "node scripts/smoke-host.mjs"
+    "smoke:host": "node scripts/smoke-host.mjs",
+    "smoke:mobile": "node scripts/mobile-shell.qa.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
