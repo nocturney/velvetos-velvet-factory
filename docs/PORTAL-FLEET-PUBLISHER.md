@@ -40,3 +40,22 @@ Official references:
 
 Parent Issue #37: https://github.com/nocturney/velvetos-velvet-factory/issues/37
 Signed reader Draft: https://github.com/nocturney/velvetos-velvet-factory/pull/36
+
+
+## M2 follow-up — read-only pending/replay forensics (isolated Draft candidate)
+
+This extension adds `control-center/fleet-publisher-reconcile.mjs` as an **advisory, opt-in inspector**, not an activation, auto-recovery, or replacement publisher. `inspectPublisherReconciliation` validates the identity-bound on-disk `publisher-state.json`, calls only `transport.inspect()` (GCS metadata GET), and when a pending upload appears to have advanced remote generation, calls `transport.readSignedAtGeneration(generation)` for a generation-preconditioned JSON media GET. It verifies the historical Ed25519 signature with an explicitly supplied **public** key, compares sequence and issuance time, checks expiry, rechecks remote generation, and compares the local state file before/after. No upload, state repair, token provisioning or Cloud Run calls are performed automatically.
+
+Possible statuses: `CLEAN_MATCH`, `CLEAN_REMOTE_DRIFT`, `PENDING_REMOTE_UNCHANGED`, `PENDING_REMOTE_MISSING`, `PENDING_SIGNED_CANDIDATE`, `PENDING_REMOTE_MISMATCH`, `PENDING_REMOTE_UNVERIFIED`, `REMOTE_GENERATION_RACE`, `LOCAL_STATE_RACE`, `REMOTE_UNAVAILABLE`. Only a stable, clean, **nonpending** read may have `manualReviewRequired=false`. Every pending, indeterminate or drift state remains blocked from automated publication.
+
+`PENDING_SIGNED_CANDIDATE` is deliberately not a publication receipt: the original v1 pending record does not preserve the exact serialized body digest. A matching signature/sequence/timestamp cannot alone prove the object is the original attempted upload. Human readback, storage audit and explicitly reviewed repair/rollback are still mandatory. Expired signed envelopes may be authenticated historically for forensics but **cannot** be presented as live status or accepted by the Portal's freshness verifier.
+
+Eight isolated Node negative/behavior tests check tampering, mismatched issuance/sequence, remote/local mutation races, missing media, GCS generation pinning and no writes. This module is not wired into the running publisher or existing deployment image. It adds no cloud resources, schedules, secrets, IAM changes or costs.
+
+
+### M2 follow-up: exact-body pending digest and mandatory readback (2026-10-15)
+- Pending publisher state now reserves a lowercase **SHA-256 of the exact serialized signed envelope bytes** together with sequence/generation **before** any upload. The v1 state validator also accepts historic pending records without `sha256`, preserving safe legacy startup; malformed present hashes are rejected.
+- A successful conditional GCS POST now requires a generation-pinned **read-only media GET**, exact raw-body SHA-256 equality, Ed25519 signature/key/sequence/issue-time verification, a still-valid envelope, and a second remote generation inspection **before** state moves from pending to committed. Every post-upload failure remains **pending**, even if the remote write may have succeeded. The next automatic run still fails closed.
+- The isolated reconciler compares optional v1 pending `sha256` against the **exact remote bytes**, never normalized/re-serialized JSON. Status `PENDING_DIGEST_VERIFIED_CANDIDATE` indicates a matching read-only forensic observation, **not permission to repair, clear pending or re-publish automatically**. Legacy pending records continue to report `PENDING_SIGNED_CANDIDATE` without claiming exact-body equality.
+- This readback adds two GCS reads (media and metadata) per successful publication to the pre-existing metadata read; include these Class B read operations and minimal bandwidth in the owner's cloud cost review. No provider identities, private bucket/object, signing key, scheduled job or real GCS requests were introduced here.
+- New synthetic tests require fail-closed behavior for wrong hash, altered signature, expired response, lost media GET, generation drift and missing readback dependency; the Chris-only dry-run transport is still **entirely in-memory**.
