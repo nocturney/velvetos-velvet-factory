@@ -2,55 +2,34 @@ import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { proxyControlRequest } from "./control-proxy-boundary.mjs";
 
 const root = fileURLToPath(new URL("./dist/", import.meta.url));
 const port = Number(process.env.PORT || 8080);
+const bindHost = process.env.HOST || "0.0.0.0";
 const upstream = (process.env.VELVETOS_CONTROL_API_URL || "").replace(/\/$/, "");
 const appToken = process.env.VELVETOS_CONTROL_API_TOKEN || "";
 const audience = process.env.VELVETOS_CONTROL_API_AUDIENCE || upstream;
-
-const allowedApi = new Set([
-  "/v1/snapshot",
-  "/v1/capabilities",
-]);
-
-function allowedApiPath(pathname) {
-  if (allowedApi.has(pathname)) return true;
-  return pathname === "/v1/search";
-}
 
 async function cloudRunIdentityToken() {
   if (!audience || process.env.VELVETOS_USE_GCP_IDENTITY !== "1") return "";
   const url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=" +
     encodeURIComponent(audience) + "&format=full";
-  const response = await fetch(url, { headers: { "Metadata-Flavor": "Google" } });
+  const response = await fetch(url, {
+    headers: { "Metadata-Flavor": "Google" },
+    redirect: "error",
+    signal: AbortSignal.timeout(2500),
+  });
   if (!response.ok) throw new Error("identity token unavailable");
   return response.text();
 }
 
 async function proxyControl(req, res, url) {
-  if (req.method !== "GET") return json(res, 405, { error: "method_not_allowed" });
-  if (!upstream || !appToken) return json(res, 503, { error: "control_api_not_configured" });
-
-  const targetPath = url.pathname.replace(/^\/api\/control/, "") || "/";
-  if (!allowedApiPath(targetPath)) return json(res, 404, { error: "not_found" });
-
-  const identity = await cloudRunIdentityToken();
-  const headers = { Accept: "application/json" };
-  if (identity) {
-    headers.Authorization = "Bearer " + identity;
-    headers["X-VelvetOS-Token"] = appToken;
-  } else {
-    headers.Authorization = "Bearer " + appToken;
-  }
-
-  const response = await fetch(upstream + targetPath + url.search, { headers });
-  const body = await response.arrayBuffer();
-  res.writeHead(response.status, {
-    "Content-Type": response.headers.get("content-type") || "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
+  return proxyControlRequest({
+    req, res, url, upstream, appToken,
+    identityToken: cloudRunIdentityToken,
+    writeJson: json,
   });
-  res.end(Buffer.from(body));
 }
 
 function json(res, status, value) {
@@ -59,6 +38,7 @@ function json(res, status, value) {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": body.length,
     "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
   });
   res.end(body);
 }
@@ -75,13 +55,22 @@ const mime = {
 };
 
 async function staticFile(res, pathname) {
-  const requested = pathname === "/" ? "index.html" : pathname.slice(1);
-  const safe = normalize(requested).replace(/^(\.\.(\/|\\|$))+/, "");
+  let requested;
+  try { requested = decodeURIComponent(pathname === "/" ? "index.html" : pathname.slice(1)); }
+  catch { return json(res, 404, { error: "not_found" }); }
+  // No dotfiles, encoded traversal, backslashes or unsupported file extensions.
+  if (/(^|[\\/])\./.test(requested) || requested.includes("\\") ||
+      requested.includes("..") || /[\x00-\x1f\x7f]/.test(requested))
+    return json(res, 404, { error: "not_found" });
+  const safe = normalize(requested);
   let file = join(root, safe);
+  if (extname(file) && !mime[extname(file)])
+    return json(res, 404, { error: "not_found" });
 
   try {
     if (!(await stat(file)).isFile()) throw new Error("not file");
   } catch {
+    if (extname(file)) return json(res, 404, { error: "not_found" });
     file = join(root, "index.html");
   }
 
@@ -91,6 +80,8 @@ async function staticFile(res, pathname) {
     "Cache-Control": file.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'",
   });
   res.end(body);
 }
@@ -113,6 +104,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, "0.0.0.0", () => {
-  console.log(`velvetos-control-center listening on :${port}`);
+server.listen(port, bindHost, () => {
+  console.log(`velvetos-control-center listening on ${bindHost}:${server.address().port}`);
 });

@@ -4,10 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run smoke:security",
     "preview": "vite preview",
     "start": "node server.mjs",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/security-boundary.node.mjs",
+    "smoke:security": "node --test scripts/security-boundary.node.mjs",
     "smoke:host": "node scripts/smoke-host.mjs"
   },
   "dependencies": {
