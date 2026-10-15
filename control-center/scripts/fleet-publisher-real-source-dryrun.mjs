@@ -17,7 +17,7 @@ const viewerFile = "D:\\Velvet\\State\\CreativeControlCenter\\remote-access-toke
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "vf-fleet-publisher-local-"));
 try {
   const keys = crypto.generateKeyPairSync("ed25519");
-  let uploadObserved = false;
+  let uploadObserved = false, remoteGeneration = "0", lastBody = null;
   const identity = {
     bucket: "vf-synthetic-no-cloud",
     objectName: "portal/fleet/status.json",
@@ -28,7 +28,15 @@ try {
     identity, allowInitialize: true,
     transport: {
       bucket:identity.bucket, objectName:identity.objectName,
-      inspect:async()=> "0",
+      inspect:async()=>remoteGeneration,
+      readSignedAtGeneration:async(generation)=>{
+        assert.equal(generation,remoteGeneration);
+        assert(lastBody);
+        return {
+          signed:JSON.parse(lastBody),
+          sha256:crypto.createHash("sha256").update(lastBody).digest("hex"),
+        };
+      },
       uploadIfGeneration:async(body, expected)=>{
         assert.equal(expected,"0");
         const parsed=JSON.parse(body);
@@ -39,8 +47,10 @@ try {
         });
         assert(verified.count>0);
         uploadObserved=true;
+        lastBody=body;
+        remoteGeneration="1";
         // This is an in-memory simulation only. No real network upload.
-        return "1";
+        return remoteGeneration;
       },
     },
     getViewerToken:async()=>(await fs.readFile(viewerFile,"utf8")).trim(),

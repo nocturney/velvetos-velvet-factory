@@ -13,10 +13,11 @@ const keys = crypto.generateKeyPairSync("ed25519");
 const identity = {bucket: "test-private-fleet", objectName:"portal/fleet/status.json", keyId:"test_fleet_key"};
 const issuedAt = "2026-10-15T08:00:00.000Z";
 const earlier = "2026-10-15T07:59:00.000Z";
-const state = (pending = true) => ({
+const state = (pending = true, expectedSha256 = null) => ({
   schema:PUBLISHER_STATE_SCHEMA, ...identity, generation:pending?"0":"1",
   lastSequence:1, lastIssuedAt:issuedAt, lastCommittedAt:pending?null:issuedAt,
-  pending:pending?{expectedGeneration:"0",sequence:1}:null,
+  pending:pending?{expectedGeneration:"0",sequence:1,
+    ...(expectedSha256 === null ? {} : {sha256:expectedSha256})}:null,
 });
 const signed = (sequence=1, time=issuedAt) => createSignedFleetSnapshot({
   machines:[{id:"fixture-mac",name:"Synthetic Mac",platform:"macos",status:"online",
@@ -30,7 +31,8 @@ const mkRemote = (generation="1", value=signed()) => ({
   async inspect(){return generation;},
   async readSignedAtGeneration(requested){
     assert.equal(requested,generation);
-    return value;
+    return { signed:value,
+      sha256:crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex") };
   },
 });
 async function temp(action) {
@@ -152,7 +154,10 @@ test("GCS forensic media GET pins generation; invalid responses reject",async()=
         status:200,headers:{"content-type":"application/json","x-goog-generation":"4"}});
     },
   });
-  assert.equal((await transport.readSignedAtGeneration("4")).sequence,1);
+  const signedRead = await transport.readSignedAtGeneration("4");
+  assert.equal(signedRead.signed.sequence,1);
+  assert.equal(signedRead.sha256,crypto.createHash("sha256")
+    .update(JSON.stringify(signed())).digest("hex"));
   for(const [kind,reason] of [
     ["precondition",/gcs_read_generation_changed/],
     ["html",/gcs_metadata_not_json/],
@@ -163,4 +168,76 @@ test("GCS forensic media GET pins generation; invalid responses reject",async()=
   }
   await assert.rejects(transport.readSignedAtGeneration("0"),/gcs_generation_invalid/);
   assert.equal(reads,4);
+});
+
+
+test("new pending record binds EXACT remote body digest, still needs human review",async()=>{
+  await temp(async file=>{
+    const value=signed();
+    const hash=crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+    await fs.writeFile(file,JSON.stringify(state(true,hash)));
+    const before=await fs.readFile(file,"utf8");
+    const remote=mkRemote("1",value);
+    remote.uploadIfGeneration=()=>{throw Error("auditor must not write");};
+    const result=await audit(file,remote);
+    assert.equal(result.status,"PENDING_DIGEST_VERIFIED_CANDIDATE");
+    assert.equal(result.pendingDigestMatched,true);
+    assert.equal(result.manualReviewRequired,true);
+    assert.equal(result.remoteExpired,true);
+    assert.equal(await fs.readFile(file,"utf8"),before);
+    assert(!JSON.stringify(result).includes(hash));
+  });
+});
+
+test("authentic signature with DIFFERENT bytes cannot match a reserved pending body",async()=>{
+  await temp(async file=>{
+    await fs.writeFile(file,JSON.stringify(state(true,"0".repeat(64))));
+    const result=await audit(file,mkRemote("1",signed()));
+    assert.equal(result.status,"PENDING_REMOTE_DIGEST_MISMATCH");
+    assert.equal(result.pendingDigestMatched,false);
+    assert.equal(result.manualReviewRequired,true);
+  });
+});
+
+test("missing raw-byte digest cannot claim a v1 pending digest match",async()=>{
+  await temp(async file=>{
+    const value=signed();
+    const hash=crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+    await fs.writeFile(file,JSON.stringify(state(true,hash)));
+    const remote={...mkRemote("1",value),readSignedAtGeneration:async()=>({signed:value})};
+    const r=await audit(file,remote);
+    assert.equal(r.status,"PENDING_REMOTE_UNVERIFIED");
+    assert.equal(r.pendingDigestMatched,null);
+    assert.equal(r.manualReviewRequired,true);
+  });
+});
+
+test("bad pending hash rejected before remote access",async()=>{
+  await temp(async file=>{
+    await fs.writeFile(file,JSON.stringify(state(true,"not-a-sha256")));
+    let called=false;
+    const remote={...mkRemote(),inspect:async()=>{called=true;return "1";}};
+    await assert.rejects(audit(file,remote),/invalid_or_mismatched_publisher_state/);
+    assert.equal(called,false);
+  });
+});
+
+test("GCS forensics hashes raw media bytes, not re-serialized parsed JSON",async()=>{
+  const payload=" \n"+JSON.stringify(signed(),null,2)+"\n";
+  const transport=makeGcsPublisherTransport({
+    bucket:identity.bucket,objectName:identity.objectName,
+    getAccessToken:async()=>"SYNTHETIC_GCS_TOKEN_NEVER_LIVE",
+    fetchImpl:async(url,opts)=>{
+      assert(url.includes("ifGenerationMatch=77"));
+      assert.equal(opts.method,"GET");
+      return new Response(payload,{status:200,headers:{
+        "content-type":"application/json","x-goog-generation":"77",
+      }});
+    },
+  });
+  const r=await transport.readSignedAtGeneration("77");
+  assert.equal(r.signed.sequence,1);
+  assert.equal(r.sha256,crypto.createHash("sha256").update(payload).digest("hex"));
+  assert.notEqual(r.sha256,crypto.createHash("sha256")
+    .update(JSON.stringify(r.signed)).digest("hex"));
 });

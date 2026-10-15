@@ -42,7 +42,7 @@ export async function inspectPublisherReconciliation({
     localGeneration: state.generation, remoteGeneration: null,
     localSequence: state.lastSequence,
     pendingSequence: state.pending?.sequence ?? null,
-    remoteSignedSequence: null, remoteExpired: null,
+    remoteSignedSequence: null, remoteExpired: null, pendingDigestMatched: null,
   };
   try {
     const remoteGeneration = await transport.inspect();
@@ -63,9 +63,10 @@ export async function inspectPublisherReconciliation({
     } else {
       // GCS generation is pinned on the media GET; changes fail closed.
       try {
-        const signed = await transport.readSignedAtGeneration(remoteGeneration);
-        // Forensics must authenticate historical (possibly expired) signatures,
-        // not mistake a stale but authentic object for an invalid signature.
+        const remote = await transport.readSignedAtGeneration(remoteGeneration);
+        const signed = remote?.signed;
+        // Forensics can authenticate an expired object historically, but an
+        // authentic signature alone never authorizes a state transition.
         verifySignedFleetSnapshot(signed, {
           publicKey, keyId: identity.keyId,
           now: Date.parse(signed?.issuedAt),
@@ -74,9 +75,23 @@ export async function inspectPublisherReconciliation({
         const t = now();
         if (!Number.isSafeInteger(t) || t < 0) throw Error("reconciliation_clock_invalid");
         base.remoteExpired = Date.parse(signed.expiresAt) <= t;
-        base.status = signed.sequence === state.pending.sequence &&
-          signed.issuedAt === state.lastIssuedAt ?
-          "PENDING_SIGNED_CANDIDATE" : "PENDING_REMOTE_MISMATCH";
+        if (signed.sequence !== state.pending.sequence ||
+            signed.issuedAt !== state.lastIssuedAt) {
+          base.status = "PENDING_REMOTE_MISMATCH";
+        } else if (state.pending.sha256) {
+          // A digest is reserved BEFORE the upload. Compare it to the hash of
+          // the exact remote object bytes, not JSON.stringify(parsed media).
+          base.pendingDigestMatched = typeof remote.sha256 === "string" &&
+            /^[a-f0-9]{64}$/.test(remote.sha256) ?
+            remote.sha256 === state.pending.sha256 : null;
+          base.status = base.pendingDigestMatched === true ?
+            "PENDING_DIGEST_VERIFIED_CANDIDATE" :
+            base.pendingDigestMatched === false ?
+              "PENDING_REMOTE_DIGEST_MISMATCH" : "PENDING_REMOTE_UNVERIFIED";
+        } else {
+          // Legacy v1 pending records have no durable expected body hash.
+          base.status = "PENDING_SIGNED_CANDIDATE";
+        }
       } catch {
         base.status = "PENDING_REMOTE_UNVERIFIED";
       }
@@ -89,6 +104,7 @@ export async function inspectPublisherReconciliation({
       base.remoteGeneration = null;
       base.remoteSignedSequence = null;
       base.remoteExpired = null;
+      base.pendingDigestMatched = null;
       base.status = "REMOTE_GENERATION_RACE";
       base.manualReviewRequired = true;
     }
@@ -97,6 +113,7 @@ export async function inspectPublisherReconciliation({
     base.remoteGeneration = null;
     base.remoteSignedSequence = null;
     base.remoteExpired = null;
+    base.pendingDigestMatched = null;
     base.manualReviewRequired = true;
   }
   try {
@@ -106,12 +123,14 @@ export async function inspectPublisherReconciliation({
       base.manualReviewRequired = true;
       base.remoteSignedSequence = null;
       base.remoteExpired = null;
+      base.pendingDigestMatched = null;
     }
   } catch {
     base.status = "LOCAL_STATE_RACE";
     base.manualReviewRequired = true;
     base.remoteSignedSequence = null;
     base.remoteExpired = null;
+    base.pendingDigestMatched = null;
   }
   return Object.freeze(base);
 }
