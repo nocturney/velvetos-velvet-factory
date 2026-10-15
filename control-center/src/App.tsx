@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { controlApi } from "./control-api";
+import { useControlSnapshot } from "./useControlSnapshot";
+import { evaluateSnapshotHealth } from "./snapshot-health";
 import { moduleRegistry } from "./registry";
 import { loadLayout, saveLayout } from "./layout";
 import { CommandPalette } from "./CommandPalette";
 import { ModuleErrorBoundary } from "./ModuleErrorBoundary";
-import type { ControlSnapshot, ViewId } from "./types";
+import type { ViewId } from "./types";
 
 const views: { id: ViewId; label: string }[] = [
   { id: "overview", label: "Overview" }, { id: "studio", label: "Studio" },
@@ -13,12 +14,10 @@ const views: { id: ViewId; label: string }[] = [
 ];
 
 export default function App() {
-  const [snapshot, setSnapshot] = useState<ControlSnapshot | null>(null);
-  const [error, setError] = useState("");
+  const { snapshot, error, now } = useControlSnapshot();
   const [layout, setLayout] = useState(loadLayout);
   const [palette, setPalette] = useState(false);
 
-  useEffect(() => { controlApi.snapshot().then(setSnapshot).catch(() => setError("Control API לא זמין או דורש אימות.")); }, []);
   useEffect(() => saveLayout(layout), [layout]);
   useEffect(() => {
     const key = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setPalette(true); } if (event.key === "Escape") setPalette(false); };
@@ -30,15 +29,19 @@ export default function App() {
     .filter((m) => m.views.includes(layout.activeView) && m.isAvailable(snapshot)), [layout, snapshot]);
 
   const flags = (snapshot?.flags ?? {}) as Record<string, unknown>;
-  const freshness = snapshot?.freshness && typeof snapshot.freshness === "object"
-    ? String((snapshot.freshness as Record<string, unknown>).state ?? "unknown")
-    : "unknown";
+  const snapshotHealth = evaluateSnapshotHealth(snapshot, now);
+  const freshness = snapshotHealth;
+  const displayState = error ? "DISCONNECTED" : !snapshot ? "CONNECTING" :
+    snapshotHealth === "live" ? "LIVE VERIFIED" :
+    snapshotHealth === "fresh" ? "FRESH SNAPSHOT" :
+    snapshotHealth === "stale" ? "STALE SNAPSHOT" :
+    snapshotHealth === "disconnected" ? "DISCONNECTED" : "UNKNOWN";
   const health = String(flags.velvetosHealth ?? "unknown");
 
   return <div className="app-shell">
     <header className="topbar"><div className="brand"><div className="mark">V</div><div><b>VelvetOS</b><span>Control Center</span></div></div>
       <button className="search-trigger" onClick={() => setPalette(true)}><span>⌕</span><b>Search / Command</b><kbd>Ctrl K</kbd></button>
-      <div className="top-actions"><span className={`live-dot ${snapshot ? "online" : ""}`}></span><small>{snapshot ? "LIVE SNAPSHOT" : "CONNECTING"}</small>
+      <div className="top-actions"><span className={`live-dot ${!error && (snapshotHealth === "live" || snapshotHealth === "fresh") ? "online" : ""}`}></span><small>{displayState}</small>
         <button onClick={() => setLayout((x) => ({ ...x, density: x.density === "wide" ? "dense" : "wide" }))}>{layout.density === "wide" ? "Wide" : "Dense"}</button></div>
     </header>
     <nav>{views.map((view) => <button key={view.id} className={layout.activeView === view.id ? "active" : ""} onClick={() => setLayout((x) => ({ ...x, activeView: view.id }))}>{view.label}</button>)}</nav>
