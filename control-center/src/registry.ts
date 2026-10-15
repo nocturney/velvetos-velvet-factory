@@ -9,6 +9,7 @@ import { RuntimeModule } from "./modules/RuntimeModule";
 import { SourcesModule } from "./modules/SourcesModule";
 import { SystemModule } from "./modules/SystemModule";
 import { ToolsModule } from "./modules/ToolsModule";
+import { FleetModule } from "./modules/FleetModule";
 
 const states = ["ready", "unavailable", "degraded", "needs_sync", "conflict", "unknown"] as const;
 const base = { allowedCollectionStates: states, actions: [] as const, showProvenance: true, showFreshness: true };
@@ -33,4 +34,5 @@ export const moduleRegistry: ControlCenterModuleDefinition[] = [
   { ...base, id: "sources", title: "Canonical Sources", domain: "collections", defaultView: "system", views: ["system"], defaultSize: { cols: 8, rows: 4 }, priority: 90, visualRole: "system", select: selectSources, isAvailable: visible, component: SourcesModule },
   { ...base, id: "runtime", title: "Runtime & Sensors", domain: "runtime", defaultView: "system", views: ["system"], defaultSize: { cols: 8, rows: 4 }, priority: 85, visualRole: "system", select: selectRuntime, isAvailable: visible, component: RuntimeModule },
   { ...base, id: "system-capabilities", title: "System Capabilities", domain: "system-capabilities", defaultView: "system", views: ["system"], defaultSize: { cols: 16, rows: 6 }, priority: 80, visualRole: "system", select: capabilitySelector(["memory", "office", "harness", "mem", "console", "instance", "public", "auto"]), isAvailable: visible, component: ToolsModule },
+  { ...base, id: "fleet", title: "Fleet Machines", domain: "fleet", defaultView: "fleet", views: ["fleet"], defaultSize: { cols: 16, rows: 6 }, priority: 85, visualRole: "operational", select: () => ({ state: "unknown", items: null, reason: "Separate Fleet API, independently fetched" }), isAvailable: visible, component: FleetModule },
 ];

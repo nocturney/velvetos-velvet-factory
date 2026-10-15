@@ -7,7 +7,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "start": "node server.mjs",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/fleet-proxy.node.mjs",
     "smoke:host": "node scripts/smoke-host.mjs"
   },
   "dependencies": {
