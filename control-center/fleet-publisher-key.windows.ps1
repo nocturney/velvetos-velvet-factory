@@ -44,8 +44,10 @@ if ($Operation -eq 'Protect') {
     Set-Acl -LiteralPath $temp -AclObject $acl
     $checked = Get-Acl -LiteralPath $temp
     $allow = @($checked.Access | Where-Object { $_.AccessControlType -eq 'Allow' })
-    if ($allow.Count -ne 1 -or $allow[0].IdentityReference -ne $sid -and
-        $allow[0].IdentityReference.Value -ne $sid.Value) {
+    $allowedIdentitySid = if ($allow.Count -eq 1) {
+      $allow[0].IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
+    } else { '' }
+    if ($allow.Count -ne 1 -or $allowedIdentitySid -ne $sid.Value) {
       throw 'protected_key_acl_rejected'
     }
     # No overwrite. If the target raced into existence, exit without replacing.
