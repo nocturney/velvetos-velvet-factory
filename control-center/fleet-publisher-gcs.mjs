@@ -85,6 +85,25 @@ export function makeGcsPublisherTransport({
       const body = await readSmallJson(response, MAX_META_BYTES);
       return checkedGeneration(body.generation);
     },
+    // Read-only forensics for a PENDING upload. GCS checks generation before
+    // delivering bytes; caller must still validate the signed envelope.
+    async readSignedAtGeneration(expectedGeneration) {
+      checkedGeneration(expectedGeneration);
+      const token = await tokenFrom(getAccessToken);
+      const mediaUrl = gcsFleetObjectUrl(bucket, objectName) +
+        "&ifGenerationMatch=" + encodeURIComponent(expectedGeneration);
+      const response = await fetchImpl(mediaUrl, {
+        method: "GET", redirect: "error",
+        headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+        signal: AbortSignal.timeout(META_TIMEOUT_MS),
+      });
+      if (response.status === 412) throw new Error("gcs_read_generation_changed");
+      if (!response.ok) throw new Error("gcs_signed_object_unavailable");
+      const headerGeneration = response.headers.get("x-goog-generation");
+      if (headerGeneration && headerGeneration !== expectedGeneration)
+        throw new Error("gcs_read_generation_mismatch");
+      return readSmallJson(response, MAX_ENVELOPE_BYTES);
+    },
     async uploadIfGeneration(body, expectedGeneration) {
       checkedGeneration(expectedGeneration, true);
       if (typeof body !== "string" ||

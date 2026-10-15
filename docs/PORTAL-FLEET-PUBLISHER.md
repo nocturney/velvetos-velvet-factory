@@ -40,3 +40,14 @@ Official references:
 
 Parent Issue #37: https://github.com/nocturney/velvetos-velvet-factory/issues/37
 Signed reader Draft: https://github.com/nocturney/velvetos-velvet-factory/pull/36
+
+
+## M2 follow-up — read-only pending/replay forensics (isolated Draft candidate)
+
+This extension adds `control-center/fleet-publisher-reconcile.mjs` as an **advisory, opt-in inspector**, not an activation, auto-recovery, or replacement publisher. `inspectPublisherReconciliation` validates the identity-bound on-disk `publisher-state.json`, calls only `transport.inspect()` (GCS metadata GET), and when a pending upload appears to have advanced remote generation, calls `transport.readSignedAtGeneration(generation)` for a generation-preconditioned JSON media GET. It verifies the historical Ed25519 signature with an explicitly supplied **public** key, compares sequence and issuance time, checks expiry, rechecks remote generation, and compares the local state file before/after. No upload, state repair, token provisioning or Cloud Run calls are performed automatically.
+
+Possible statuses: `CLEAN_MATCH`, `CLEAN_REMOTE_DRIFT`, `PENDING_REMOTE_UNCHANGED`, `PENDING_REMOTE_MISSING`, `PENDING_SIGNED_CANDIDATE`, `PENDING_REMOTE_MISMATCH`, `PENDING_REMOTE_UNVERIFIED`, `REMOTE_GENERATION_RACE`, `LOCAL_STATE_RACE`, `REMOTE_UNAVAILABLE`. Only a stable, clean, **nonpending** read may have `manualReviewRequired=false`. Every pending, indeterminate or drift state remains blocked from automated publication.
+
+`PENDING_SIGNED_CANDIDATE` is deliberately not a publication receipt: the original v1 pending record does not preserve the exact serialized body digest. A matching signature/sequence/timestamp cannot alone prove the object is the original attempted upload. Human readback, storage audit and explicitly reviewed repair/rollback are still mandatory. Expired signed envelopes may be authenticated historically for forensics but **cannot** be presented as live status or accepted by the Portal's freshness verifier.
+
+Eight isolated Node negative/behavior tests check tampering, mismatched issuance/sequence, remote/local mutation races, missing media, GCS generation pinning and no writes. This module is not wired into the running publisher or existing deployment image. It adds no cloud resources, schedules, secrets, IAM changes or costs.
