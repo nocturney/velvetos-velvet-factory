@@ -31,17 +31,19 @@ async function check(mock = fake()) {
   return inspectAnonymousBoundary({stagingUrl:SITE,apiUrl:API,fetchImpl:mock.fetchImpl});
 }
 
-test("accept only the two pinned Cloud Run service-name patterns and HTTPS origins", () => {
+test("accept only the two exact pinned Cloud Run HTTPS origins, never a lookalike service", () => {
   assert.equal(validateServiceOrigin(SITE, "staging"), SITE);
   assert.equal(validateServiceOrigin(API, "api"), API);
   for (const bad of [
     SITE.replace("https:", "http:"), SITE + "/health", SITE + "?redirect=evil",
     "https://evil.example/", "https://velvetos-control-center-staging-attacker.example/",
+    SITE.replace("3sz7smh74a-zf", "different-zf"),
     "https://bad@velvetos-control-center-staging-3sz7smh74a-zf.a.run.app/",
     "https://velvetos-control-center-staging-3sz7smh74a-zf.a.run.app:8443/",
     API, "", "not-a-url",
   ]) assert.throws(() => validateServiceOrigin(bad, "staging"));
   assert.throws(() => validateServiceOrigin(SITE, "api"));
+  assert.throws(() => validateServiceOrigin(API.replace("3sz7smh74a-zf", "different-zf"), "api"));
   assert.throws(() => validateServiceOrigin(API, "unknown"));
 });
 
