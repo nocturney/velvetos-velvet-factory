@@ -31,6 +31,42 @@ function isLocalRequest(req) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
 }
 
+const MAX_LOCAL_FLEET_BODY_BYTES = 2 * 1024 * 1024;
+
+// The local viewer is trusted only for transport identity, never for response
+// size or type. Consume streamed *bytes* under a hard cap, including when
+// Content-Length is omitted or inaccurate.
+async function boundedLocalFleetJson(response) {
+  const kind = response.headers.get("content-type") || "";
+  if (!/^(application\/json|application\/[a-z0-9.+-]+\+json)(?:\s*;|$)/i.test(kind))
+    throw new Error("fleet_response_not_json");
+  const advertised = response.headers.get("content-length");
+  if (advertised !== null) {
+    const size = Number(advertised);
+    if (!Number.isSafeInteger(size) || size < 0 || size > MAX_LOCAL_FLEET_BODY_BYTES)
+      throw new Error("fleet_response_size_invalid");
+  }
+  if (!response.body) throw new Error("fleet_response_empty");
+  const reader = response.body.getReader();
+  const parts = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_LOCAL_FLEET_BODY_BYTES) {
+        await reader.cancel("fleet_response_too_large");
+        throw new Error("fleet_response_too_large");
+      }
+      parts.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return JSON.parse(Buffer.concat(parts, size).toString("utf8"));
+}
+
 async function fleetMachines(req, res, pathname) {
   if (req.method !== "GET") return json(res, 405, { error: "method_not_allowed" });
   if (pathname !== "/api/fleet/v1/machines")
@@ -45,11 +81,8 @@ async function fleetMachines(req, res, pathname) {
     redirect: "error",
     signal: AbortSignal.timeout(5000),
   });
-  if (!response.ok || Number(response.headers.get("content-length") || 0) > 2097152)
-    return json(res, 502, { error: "fleet_unavailable" });
-  const body = await response.text();
-  if (body.length > 2097152) return json(res, 502, { error: "fleet_response_too_large" });
-  return json(res, 200, projectFleetMachines(JSON.parse(body)));
+  if (!response.ok) return json(res, 502, { error: "fleet_unavailable" });
+  return json(res, 200, projectFleetMachines(await boundedLocalFleetJson(response)));
 }
 const upstream = (process.env.VELVETOS_CONTROL_API_URL || "").replace(/\/$/, "");
 const appToken = process.env.VELVETOS_CONTROL_API_TOKEN || "";
