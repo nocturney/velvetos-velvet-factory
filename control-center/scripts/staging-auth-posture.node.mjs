@@ -19,7 +19,7 @@ function fake({ site = 302, login = "https://accounts.google.com/signin",
     assert.equal(options.signal.aborted, false);
     calls.push(url);
     if (network) throw new Error("synthetic_network_down");
-    if (url === SITE + "/health")
+    if (url === SITE + "/" || url === SITE + "/health")
       return new Response(null, { status: site, headers: { Location: login } });
     if (url === API + "/health") return new Response(null, {status: health});
     if (url === API + "/v1/snapshot") return new Response(null, {status: snapshot});
@@ -57,8 +57,8 @@ test("real-shaped anonymous Google login plus token-denied API is green ONLY for
   assert.equal(proof.redirectsFollowed, false);
   assert.equal(proof.actualOwnerSafariSessionVerified, false);
   assert.equal(proof.privateFleetTransportVerified, false);
-  assert.equal(mock.calls.length, 3);
-  assert.deepEqual(mock.calls.sort(), [SITE+"/health", API+"/health", API+"/v1/snapshot"].sort());
+  assert.equal(mock.calls.length, 4);
+  assert.deepEqual(mock.calls.sort(), [SITE+"/", SITE+"/health", API+"/health", API+"/v1/snapshot"].sort());
 });
 
 test("non-Google redirects, anonymous site success or public snapshot remain blocked", async () => {
@@ -90,6 +90,24 @@ test("non-browser site 401/403 are also anonymous denial but never owner proof",
     assert.equal(proof.releaseGate, "BLOCKED_OWNER_SAFARI_AND_PRIVATE_BACKHAUL_UNVERIFIED");
     assert.equal(proof.actualOwnerSafariSessionVerified, false);
   }
+});
+
+test("a public staging homepage cannot pass because /health is protected", async () => {
+  const mock = fake();
+  const proof = await inspectAnonymousBoundary({
+    stagingUrl: SITE, apiUrl: API,
+    fetchImpl: (url, options) => {
+      if (url === SITE + "/") {
+        assert.equal(options.redirect, "manual");
+        assert.equal(options.headers.Authorization, undefined);
+        return new Response("<html>PUBLIC</html>", {status: 200});
+      }
+      return mock.fetchImpl(url, options);
+    },
+  });
+  assert.equal(proof.status, "FAIL_CLOSED_AUTH_BOUNDARY_UNVERIFIED");
+  assert.equal(proof.releaseGate, "BLOCKED_OWNER_SAFARI_AND_PRIVATE_BACKHAUL_UNVERIFIED");
+  assert.equal(proof.credentialsSent, false);
 });
 
 test("denied API can return 403 instead of 401 without claiming owner login", async () => {
