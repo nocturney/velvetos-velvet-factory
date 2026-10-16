@@ -2,7 +2,7 @@
 
 **2026-10-16 | #30 | read-only / no secrets / no deploy / release gate still BLOCKED**
 
-The new `control-center/scripts/staging-auth-posture.mjs` is an intentionally narrow, explicitly invoked independent HTTP probe for the two **existing** fixed Cloud Run services in project `instamcp` / `me-west1`. It sends exactly three anonymous GETs and reports only status codes / Google-login redirect classification; it **never** sends a cookie, app bearer, API key or identity token, never follows a redirect, never reads a response payload, and never mutates IAP, IAM, Cloud Run, Fleet or DNS.
+The new `control-center/scripts/staging-auth-posture.mjs` is an intentionally narrow, explicitly invoked independent HTTP probe for the two **existing** fixed Cloud Run services in project `instamcp` / `me-west1`. It sends exactly four anonymous GETs (staging homepage + staging health + API health + protected API snapshot) and reports only status codes / Google-login redirect classification; it **never** sends a cookie, app bearer, API key or identity token, never follows a redirect, never reads a response payload, and never mutates IAP, IAM, Cloud Run, Fleet or DNS.
 
 ```bash
 cd control-center
@@ -11,7 +11,7 @@ node scripts/staging-auth-posture.mjs --live \
   --api "https://velvetos-control-api-3sz7smh74a-zf.a.run.app"
 ```
 
-An input must be exactly one of the two pinned HTTPS root origins (`velvetos-control-center-staging-3sz7smh74a-zf.a.run.app` or `velvetos-control-api-3sz7smh74a-zf.a.run.app`); even a same-prefix Cloud Run service with another hash is rejected. No arbitrary host/port/route/query allowed. It checks: anonymous staging `/health` is refused (302 to Google sign-in, or 401/403 for a non-browser client); Control API anonymous `/health` is 200; unauthenticated Control API `/v1/snapshot` is 401/403. The latter is intentionally a **public invocation / app bearer** design, not proof of private Cloud Run ingress.
+An input must be exactly one of the two pinned HTTPS root origins (`velvetos-control-center-staging-3sz7smh74a-zf.a.run.app` or `velvetos-control-api-3sz7smh74a-zf.a.run.app`); even a same-prefix Cloud Run service with another hash is rejected. No arbitrary host/port/route/query allowed. It checks: anonymous staging `/` **and** `/health` are both refused (302 to Google sign-in, or 401/403 for a non-browser client); Control API anonymous `/health` is 200; unauthenticated Control API `/v1/snapshot` is 401/403. The latter is intentionally a **public invocation / app bearer** design, not proof of private Cloud Run ingress.
 
 **Observed independently, no credentials:**
 - Chris Windows: `curl` GET staging `/health` returned HTTP **302**, redirect host `accounts.google.com` (TLS verification succeeded); Control API `/health` **200**, anonymous `/v1/snapshot` **401**.
