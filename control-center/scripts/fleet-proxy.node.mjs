@@ -18,7 +18,7 @@ const machine = (props = {}) => ({
     password: "SHOULD_NOT_LEAK" },
   network: { ip: "192.0.2.42" }, ...props,
 });
-let mode = "good", upstream, endpoint, requests = 0, children = [];
+let mode = "good", upstream, endpoint, requests = 0, children = [], overflowChunksSent = 0;
 async function freePort() {
   const s = net.createServer().listen(0, "127.0.0.1");
   await once(s, "listening"); const port = s.address().port; s.close();
@@ -52,6 +52,25 @@ before(async () => {
       res.writeHead(403).end("forbidden"); return;
     }
     if (mode === "badjson") { res.writeHead(200).end("{broken"); return; }
+    if (mode === "wrong-type") {
+      res.writeHead(200, { "content-type": "text/html" }).end(JSON.stringify([machine()]));
+      return;
+    }
+    if (mode === "chunked-overflow") {
+      // No Content-Length. A bounded proxy must abort before all chunks arrive.
+      overflowChunksSent = 0;
+      res.writeHead(200, { "content-type": "application/json" });
+      const chunk = "x".repeat(32 * 1024);
+      function send() {
+        if (res.destroyed) return;
+        overflowChunksSent++;
+        res.write(chunk);
+        if (overflowChunksSent >= 220) res.end();
+        else setTimeout(send, 2);
+      }
+      send();
+      return;
+    }
     const response = mode === "duplicate" ? [machine(), machine()]
       : mode === "empty" ? [] : [machine(),
         machine({ id: "test-mac", name: "Test Mac", platform: "macos",
@@ -117,6 +136,19 @@ test("disabled/misconfigured local gateway is fail-closed", async () => {
     assert.equal((await fetch(base + "/api/fleet/v1/machines")).status, 503);
   }
 });
+test("local Fleet gateway rejects wrong content type and aborts oversized chunked streams", async () => {
+  const base = await portal();
+  try {
+    mode = "wrong-type";
+    assert.equal((await fetch(base + "/api/fleet/v1/machines")).status, 502,
+      "non-JSON upstream content type cannot be projected as trusted data");
+    mode = "chunked-overflow";
+    assert.equal((await fetch(base + "/api/fleet/v1/machines")).status, 502);
+    assert(overflowChunksSent < 220,
+      "gateway buffered an entire >7 MiB chunked response before rejecting it");
+  } finally { mode = "good"; }
+});
+
 test("malformed or ambiguous Fleet data never gives success", async () => {
   const base = await portal();
   for (const fault of ["badjson", "duplicate"]) {
