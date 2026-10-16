@@ -45,9 +45,10 @@ async function anonymousGet(url, fetchImpl) {
 export async function inspectAnonymousBoundary({ stagingUrl, apiUrl, fetchImpl = fetch }) {
   const staging = validateServiceOrigin(stagingUrl, "staging");
   const api = validateServiceOrigin(apiUrl, "api");
-  let site, health, guarded;
+  let home, site, health, guarded;
   try {
-    [site, health, guarded] = await Promise.all([
+    [home, site, health, guarded] = await Promise.all([
+      anonymousGet(staging + "/", fetchImpl),
       anonymousGet(staging + "/health", fetchImpl),
       anonymousGet(api + "/health", fetchImpl),
       anonymousGet(api + "/v1/snapshot", fetchImpl),
@@ -59,7 +60,10 @@ export async function inspectAnonymousBoundary({ stagingUrl, apiUrl, fetchImpl =
   const siteLogin = site.status === 302 && site.loginHost === "accounts.google.com";
   // IAP/Cloud Run can deny a non-browser client with 401/403 rather than
   // issuing an interactive 302 login redirect; both are denial, NOT owner login.
-  const siteDenied = siteLogin || site.status === 401 || site.status === 403;
+  const homeLogin = home.status === 302 && home.loginHost === "accounts.google.com";
+  const homeDenied = homeLogin || home.status === 401 || home.status === 403;
+  const healthDenied = siteLogin || site.status === 401 || site.status === 403;
+  const siteDenied = homeDenied && healthDenied;
   const guardedRead = guarded.status === 401 || guarded.status === 403;
   const status = siteDenied && health.status === 200 && guardedRead
     ? "PASS_ANONYMOUS_DENIAL_ONLY" : "FAIL_CLOSED_AUTH_BOUNDARY_UNVERIFIED";
@@ -68,8 +72,9 @@ export async function inspectAnonymousBoundary({ stagingUrl, apiUrl, fetchImpl =
     releaseGate: "BLOCKED_OWNER_SAFARI_AND_PRIVATE_BACKHAUL_UNVERIFIED",
     credentialsSent: false,
     redirectsFollowed: false,
-    staging: { status: site.status, anonymousRequestDenied: siteDenied,
-      redirectToGoogleLogin: siteLogin },
+    staging: { status: site.status, homepageStatus: home.status,
+      anonymousRequestDenied: siteDenied, homepageRequestDenied: homeDenied,
+      redirectToGoogleLogin: siteLogin, homepageRedirectToGoogleLogin: homeLogin },
     controlApi: { healthStatus: health.status, protectedReadStatus: guarded.status,
       unauthenticatedReadDenied: guardedRead },
     actualOwnerSafariSessionVerified: false,
