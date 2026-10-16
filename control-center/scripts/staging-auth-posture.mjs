@@ -6,18 +6,18 @@ import { resolve } from "node:path";
 
 export const SCHEMA = "velvetos.portal.p0.anonymous-auth-posture.v1";
 const DEADLINE_MS = 8000;
-const STAGING = /^velvetos-control-center-staging-[a-z0-9-]+\.a\.run\.app$/;
-const API = /^velvetos-control-api-[a-z0-9-]+\.a\.run\.app$/;
+const STAGING = "velvetos-control-center-staging-3sz7smh74a-zf.a.run.app";
+const API = "velvetos-control-api-3sz7smh74a-zf.a.run.app";
 
 export function validateServiceOrigin(raw, role) {
   if (typeof raw !== "string" || raw.length > 220) throw new Error("invalid_service_origin");
   let parsed;
   try { parsed = new URL(raw); }
   catch { throw new Error("invalid_service_origin"); }
-  const pattern = role === "staging" ? STAGING : role === "api" ? API : null;
-  if (!pattern || parsed.protocol !== "https:" || parsed.port ||
+  const expectedHostname = role === "staging" ? STAGING : role === "api" ? API : null;
+  if (!expectedHostname || parsed.protocol !== "https:" || parsed.port ||
       parsed.username || parsed.password || parsed.pathname !== "/" ||
-      parsed.search || parsed.hash || !pattern.test(parsed.hostname))
+      parsed.search || parsed.hash || parsed.hostname !== expectedHostname)
     throw new Error("untrusted_service_origin");
   return parsed.origin;
 }
