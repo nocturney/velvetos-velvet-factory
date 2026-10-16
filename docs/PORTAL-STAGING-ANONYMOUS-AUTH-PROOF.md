@@ -11,7 +11,7 @@ node scripts/staging-auth-posture.mjs --live \
   --api "https://velvetos-control-api-3sz7smh74a-zf.a.run.app"
 ```
 
-An input must be an exact HTTPS root origin with one of two pinned `.a.run.app` service name patterns; no arbitrary host/port/route/query allowed. It checks: anonymous staging `/health` is refused (302 to Google sign-in, or 401/403 for a non-browser client); Control API anonymous `/health` is 200; unauthenticated Control API `/v1/snapshot` is 401/403. The latter is intentionally a **public invocation / app bearer** design, not proof of private Cloud Run ingress.
+An input must be exactly one of the two pinned HTTPS root origins (`velvetos-control-center-staging-3sz7smh74a-zf.a.run.app` or `velvetos-control-api-3sz7smh74a-zf.a.run.app`); even a same-prefix Cloud Run service with another hash is rejected. No arbitrary host/port/route/query allowed. It checks: anonymous staging `/health` is refused (302 to Google sign-in, or 401/403 for a non-browser client); Control API anonymous `/health` is 200; unauthenticated Control API `/v1/snapshot` is 401/403. The latter is intentionally a **public invocation / app bearer** design, not proof of private Cloud Run ingress.
 
 **Observed independently, no credentials:**
 - Chris Windows: `curl` GET staging `/health` returned HTTP **302**, redirect host `accounts.google.com` (TLS verification succeeded); Control API `/health` **200**, anonymous `/v1/snapshot` **401**.
