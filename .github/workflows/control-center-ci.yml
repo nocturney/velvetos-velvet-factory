@@ -44,6 +44,7 @@ jobs:
           npm run smoke:mobile
           npm run smoke:truth
           npm run smoke:office
+          npm run smoke:production
       - name: Verify no browser-secret env contract
         run: |
           ! grep -R "VELVETOS_CONTROL_API_TOKEN" dist
