@@ -31,6 +31,19 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Browser smoke QA on uncredentialed loopback preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser || command -v chromium || true)"
+          if [[ -z "$CHROME_PATH" || ! -x "$CHROME_PATH" ]]; then
+            echo "::error::No system Chromium/Chrome available; browser QA must not silently skip"
+            exit 1
+          fi
+          export CHROME_PATH
+          npm run smoke:mobile
+          npm run smoke:truth
+          npm run smoke:office
       - name: Verify no browser-secret env contract
         run: |
           ! grep -R "VELVETOS_CONTROL_API_TOKEN" dist
