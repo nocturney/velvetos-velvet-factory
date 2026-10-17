@@ -4,8 +4,11 @@ const unknown = (reason: string): Collection => ({
   state: "unknown", items: null, freshness: "unknown", reason,
 });
 
+const isCanonical = (snapshot: ControlSnapshot | null): snapshot is ControlSnapshot =>
+  snapshot?.schema === "velvetos.control.v1";
+
 export function selectDomain(snapshot: ControlSnapshot | null, key: string): Collection {
-  if (!snapshot) return unknown("Snapshot not connected.");
+  if (!isCanonical(snapshot)) return unknown("Core v1 snapshot schema missing or unsupported.");
 
   const collections = (snapshot.collections ?? {}) as Record<string, Collection>;
   if (key in collections) return collections[key];
@@ -37,7 +40,7 @@ export function selectDomain(snapshot: ControlSnapshot | null, key: string): Col
 }
 
 export function selectCapabilities(snapshot: ControlSnapshot | null, domains?: readonly string[]): Collection {
-  if (!snapshot || !Array.isArray(snapshot.capabilities)) return unknown("Capability catalog not connected.");
+  if (!isCanonical(snapshot) || !Array.isArray(snapshot.capabilities)) return unknown("Capability catalog not connected.");
   const items = (snapshot.capabilities as Record<string, unknown>[]).filter((item) =>
     !domains?.length || domains.includes(String(item.domain ?? "")),
   );
@@ -45,7 +48,7 @@ export function selectCapabilities(snapshot: ControlSnapshot | null, domains?: r
 }
 
 export function selectIntegrations(snapshot: ControlSnapshot | null): Collection {
-  if (!snapshot) return unknown("Snapshot not connected.");
+  if (!isCanonical(snapshot)) return unknown("Core v1 snapshot schema missing or unsupported.");
   const collections = (snapshot.collections ?? {}) as Record<string, Collection>;
   const envelope = collections.integrations;
   if (envelope) return envelope;
@@ -56,14 +59,14 @@ export function selectIntegrations(snapshot: ControlSnapshot | null): Collection
 }
 
 export function selectSources(snapshot: ControlSnapshot | null): Collection {
-  if (!snapshot) return unknown("Snapshot not connected.");
+  if (!isCanonical(snapshot)) return unknown("Core v1 snapshot schema missing or unsupported.");
   const collections = (snapshot.collections ?? {}) as Record<string, Collection>;
   const items = Object.entries(collections).map(([id, value]) => ({ id, ...value }));
   return { state: "ready", items, count: items.length, freshness: "live" };
 }
 
 export function selectRuntime(snapshot: ControlSnapshot | null): Collection {
-  if (!snapshot) return unknown("Snapshot not connected.");
+  if (!isCanonical(snapshot)) return unknown("Core v1 snapshot schema missing or unsupported.");
   const modules = Array.isArray(snapshot.modules) ? snapshot.modules as unknown[] : [];
   const health = Array.isArray(snapshot.health) ? snapshot.health as unknown[] : [];
   return {

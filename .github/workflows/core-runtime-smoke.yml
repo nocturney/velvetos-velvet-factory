@@ -11,6 +11,8 @@ on:
       - "INSTANCE.json"
       - "AGENTS.md"
       - "core.lock.yml"
+      - "control-center/fixtures/**"
+      - "control-center/src/core-snapshot-contract.test.ts"
       - ".github/workflows/core-runtime-smoke.yml"
   push:
     branches: [main]
@@ -23,8 +25,13 @@ on:
       - "INSTANCE.json"
       - "AGENTS.md"
       - "core.lock.yml"
+      - "control-center/fixtures/**"
+      - "control-center/src/core-snapshot-contract.test.ts"
       - ".github/workflows/core-runtime-smoke.yml"
   workflow_dispatch:
+  schedule:
+    # Detect Core main contract drift even when this repo receives no commits.
+    - cron: "17 3 * * *"
 
 jobs:
   verify-attached-core:
@@ -72,11 +79,16 @@ jobs:
       - name: Attach and verify current Core main
         run: bash scripts/attach-core.sh
 
+      - name: Verify canonical Core v1 snapshot shape against committed fixture
+        run: python3 scripts/generate-core-snapshot-fixture.py --core vendor/velvetos-core --verify
+
       - name: Install Core sensor runtime dependencies
+        if: github.event_name != 'schedule'
         run: |
           python3 -m pip install --disable-pip-version-check -r vendor/velvetos-core/requirements-sensors.txt
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
 
       - name: Full Core verification
+        if: github.event_name != 'schedule'
         run: bash scripts/verify-core.sh --full
