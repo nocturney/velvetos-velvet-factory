@@ -4,11 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run smoke:security",
     "preview": "vite preview",
     "start": "node server.mjs",
-    "test": "vitest run",
-    "smoke:host": "node scripts/smoke-host.mjs"
+    "test": "vitest run && node --test scripts/fleet-proxy.node.mjs && node --test scripts/security-boundary.node.mjs && node --test scripts/container-layout.node.mjs",
+    "smoke:host": "node scripts/smoke-host.mjs",
+    "smoke:mobile": "node scripts/mobile-shell.qa.mjs",
+    "smoke:truth": "node scripts/snapshot-truth.qa.mjs",
+    "smoke:office": "node scripts/smoke-office.mjs",
+    "smoke:security": "node --test scripts/security-boundary.node.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.1.1",
