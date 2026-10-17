@@ -1,0 +1,100 @@
+{
+  "activity": [],
+  "attention": [],
+  "capabilities": [],
+  "collections": {
+    "agents": {
+      "count": null,
+      "items": null,
+      "provenance": {
+        "authority": "projection",
+        "freshness": "unknown",
+        "receipt": null,
+        "source": "velvetos_control_api",
+        "verifiedAt": null
+      },
+      "reason": "contribution did not project this domain",
+      "state": "unknown"
+    },
+    "content": {
+      "count": null,
+      "items": null,
+      "provenance": {
+        "authority": "projection",
+        "freshness": "unknown",
+        "receipt": null,
+        "source": "velvetos_control_api",
+        "verifiedAt": null
+      },
+      "reason": "contribution did not project this domain",
+      "state": "unknown"
+    },
+    "files": {
+      "count": null,
+      "items": null,
+      "provenance": {
+        "authority": "projection",
+        "freshness": "unknown",
+        "receipt": null,
+        "source": "velvetos_control_api",
+        "verifiedAt": null
+      },
+      "reason": "contribution did not project this domain",
+      "state": "unknown"
+    },
+    "jobs": {
+      "count": null,
+      "items": null,
+      "provenance": {
+        "authority": "projection",
+        "freshness": "unknown",
+        "receipt": null,
+        "source": "velvetos_control_api",
+        "verifiedAt": null
+      },
+      "reason": "contribution did not project this domain",
+      "state": "unknown"
+    },
+    "models": {
+      "count": null,
+      "items": null,
+      "provenance": {
+        "authority": "projection",
+        "freshness": "unknown",
+        "receipt": null,
+        "source": "velvetos_control_api",
+        "verifiedAt": null
+      },
+      "reason": "contribution did not project this domain",
+      "state": "unknown"
+    },
+    "production": {
+      "count": null,
+      "items": null,
+      "provenance": {
+        "authority": "projection",
+        "freshness": "unknown",
+        "receipt": null,
+        "source": "velvetos_control_api",
+        "verifiedAt": null
+      },
+      "reason": "contribution did not project this domain",
+      "state": "unknown"
+    }
+  },
+  "connection": "connected",
+  "flags": {
+    "system": {},
+    "velvetosHealth": "degraded"
+  },
+  "freshness": {
+    "state": "unknown",
+    "verifiedAt": "2000-01-01T00:00:00Z"
+  },
+  "generatedAt": "2000-01-01T00:00:00Z",
+  "health": [],
+  "integrations": [],
+  "modules": [],
+  "schema": "velvetos.control.v1",
+  "service": "velvetos-control-api"
+}

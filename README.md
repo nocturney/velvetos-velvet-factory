@@ -2,6 +2,8 @@
 
 פרונט (office frontend) לעסק ההדפסות התלת־ממד.
 
+הפורטל היחיד של VelvetOS נמצא בתיקייה `control-center/` בריפו הזה.
+
 ## התחלה — הכי פשוט
 
 1. שכפל `nocturney/velvetos-core` **או** `nocturney/velvetos-velvet-factory`
@@ -9,7 +11,7 @@
 3. **מקומי:** לחיצה כפולה על **`START-VF.bat`** (Windows) או `./scripts/attach-core.sh`
 4. Cursor → Open Folder → התיקייה הזו
 
-מדריך מלא: [`docs/START-HERE-HE.md`](../../docs/START-HERE-HE.md)
+מדריך מלא: [`docs/START-HERE-HE.md`](https://github.com/nocturney/velvetos-core/blob/main/docs/START-HERE-HE.md)
 
 ---
 
