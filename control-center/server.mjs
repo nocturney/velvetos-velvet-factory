@@ -165,8 +165,15 @@ async function staticFile(res, pathname) {
   res.end(body);
 }
 
+// Cloud Run liveness probes are HTTP-only and do not pass through IAP, so this one
+// path is answered before the guard. Exact raw target, GET only, constant body:
+// no data, no upstream call, no file read. (Not /healthz: Cloud Run reserves some
+// paths ending in "z".) /health stays guarded.
+const LIVENESS_PATH = "/liveness";
+
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.method === "GET" && req.url === LIVENESS_PATH) return json(res, 200, { ok: true });
     // IAP JWT verifies the request itself, before health, static or token-bearing proxy reads.
     // The current staging config remains backward-compatible until explicit gated enablement.
     if (iapGuard.enabled && !(await iapGuard.verify(req.headers)))

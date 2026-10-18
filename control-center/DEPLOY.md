@@ -108,4 +108,37 @@ If IAP does not forward the expected signed assertion to the current service,
 front door, record the exact blocker and fix the header/audience configuration in
 a separately reviewed rollout. Never deploy with `--allow-unauthenticated`.
 
+### Enablement safety (follow-up to #51)
+
+- **Probes.** Keep Cloud Run's default **TCP startup probe**. It needs no HTTP path and
+  is unaffected by the guard. Cloud Run liveness probes are HTTP/gRPC only and do not
+  pass through IAP, so if a liveness probe is wanted use `httpGet.path: /liveness`.
+  The server answers exactly `GET /liveness` (no query, no trailing slash, no
+  encoding variants) **before** the guard with the constant body `{"ok":true}`: no
+  data, no upstream call, no file read. **`/health` stays guarded**, so never point a
+  probe at `/health` once `VELVETOS_REQUIRE_IAP=1`. `/healthz` is deliberately not
+  used, because Cloud Run reserves some paths ending in `z`. External requests to
+  `/liveness` still go through the IAP front door like every other path.
+- **`VELVETOS_REQUIRE_IAP` values:**
+  - unset or `0`: disabled. A warning is logged if an audience or email allowlist
+    is configured anyway.
+  - `""` (set but empty): disabled with a warning, **only if** no
+    `VELVETOS_IAP_AUDIENCE` and no `VELVETOS_IAP_ALLOWED_EMAILS` is set. With either
+    present the intent to enable is clear, so the server **refuses to start**
+    rather than run unguarded.
+  - `1`: enabled. A missing or invalid audience or allowlist refuses to start.
+  - any other value (`true`, `yes`, `" "`, `01`): refuses to start.
+
+  On Cloud Run a refused start leaves the new revision not-ready, so traffic stays on
+  the previous ready revision and the platform rate-limits restarts. Deploy guard
+  changes to a 0%-traffic revision first.
+- **JWKS outage.** Keys are cached for 5 minutes. If a refresh fails (network,
+  non-JSON, invalid key set), keys from the **last successful, fully validated**
+  fetch stay usable for at most **1 hour** after that fetch, and a single
+  `iap_jwks_refresh_failed_using_last_validated_keys` warning is logged. After that
+  the guard fails closed (401). A successful refresh fully replaces the key set, so
+  rotated-out keys stop working.
+- **`crit`.** Any JWT with a `crit` header is rejected, because no critical extensions
+  are supported.
+
 Official reference: https://cloud.google.com/iap/docs/signed-headers-howto
