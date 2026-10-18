@@ -49,3 +49,24 @@ jobs:
         run: |
           ! grep -R "VELVETOS_CONTROL_API_TOKEN" dist
           ! grep -R "X-VelvetOS-Token" dist
+      - name: Canary build rejects embedded credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          token_canary="canary-token-$(openssl rand -hex 16)"
+          fleet_canary="canary-fleet-$(openssl rand -hex 16)"
+          base_canary="https://canary.invalid/$(openssl rand -hex 8)"
+          rm -rf dist
+          VELVETOS_CONTROL_API_TOKEN="$token_canary" \
+          VELVETOS_FLEET_READONLY_TOKEN="$fleet_canary" \
+          VITE_CONTROL_API_BASE="$base_canary" \
+            npm run build
+          fail=0
+          while IFS= read -r -d '' file; do
+            if grep -F -q -e "$token_canary" -e "$fleet_canary" -e "$base_canary" \
+                -e "Bearer " -e "metadata.google.internal" -e "VELVETOS_" "$file"; then
+              echo "::error::embedded credential marker in ${file#dist/}"
+              fail=1
+            fi
+          done < <(find dist -type f -print0)
+          exit "$fail"

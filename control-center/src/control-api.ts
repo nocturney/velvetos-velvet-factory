@@ -3,7 +3,7 @@ import type { ControlSnapshot, SearchResult } from "./types";
 const DEFAULT_BASE = "/api/control";
 
 export class ControlApiClient {
-  constructor(private readonly baseUrl = import.meta.env.VITE_CONTROL_API_BASE || DEFAULT_BASE) {}
+  constructor(private readonly baseUrl = DEFAULT_BASE) {}
 
   private async get<T>(path: string, signal?: AbortSignal): Promise<T> {
     const response = await fetch(this.baseUrl + path, {
