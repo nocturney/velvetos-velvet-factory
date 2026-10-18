@@ -59,5 +59,17 @@ test("P0 release Dockerfile packages server imports and security smoke", () => {
   assert(blocks[0].includes("npm run build"), "must run exact CI build contract in container");
   assert(blocks[1].includes("COPY --from=build /app/dist ./dist"), "missing built browser assets");
   assert(blocks[1].includes('CMD ["node", "server.mjs"]'), "unexpected server entrypoint");
+
+  // Base image pinned by digest, same digest in both stages.
+  const froms = [...dockerfile.matchAll(/^FROM\s+(\S+)/gm)].map((m) => m[1]);
+  assert.equal(froms.length, 2);
+  for (const ref of froms) assert.match(ref, /^node:24-alpine@sha256:[0-9a-f]{64}$/, "base image must be pinned by digest: " + ref);
+  assert.equal(froms[0], froms[1], "build and runtime stages must use the same pinned base");
+
+  // Runtime stage drops root before the server starts, and never switches back.
+  const users = [...blocks[1].matchAll(/^USER\s+(\S+)/gm)].map((m) => m[1]);
+  assert.deepEqual(users, ["node"], "runtime stage must run as USER node");
+  assert(blocks[1].indexOf("USER node") < blocks[1].indexOf("CMD "), "USER node must precede CMD");
+  assert(!/--chown|--chmod/.test(blocks[1]), "runtime app files stay root-owned and read-only for the node user");
   console.log("PORTAL_IMAGE_CONTRACT_PASS deps=" + runtimeDeps.size + " security_smoke=included");
 });
