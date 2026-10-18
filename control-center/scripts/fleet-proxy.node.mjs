@@ -96,6 +96,24 @@ test("verified projection preserves source freshness and strips secrets", () => 
   for (const item of ["SECRET", "password", "192.0.2.42", "SHOULD_NOT_LEAK"])
     assert.ok(!JSON.stringify(p).includes(item));
 });
+test("Fleet memory bytes reject fractional and unsafe integers", () => {
+  const invalid = [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, Infinity, -Infinity, NaN, "123", null];
+  for (const value of invalid) {
+    const projected = projectFleetMachines([machine({
+      hardware: { memory: { totalBytes: value, freeBytes: value } },
+    })]).machines[0].hardware;
+    assert.equal(projected.memoryTotalBytes, null, "totalBytes " + String(value));
+    assert.equal(projected.memoryFreeBytes, null, "freeBytes " + String(value));
+  }
+  for (const value of [0, 1, Number.MAX_SAFE_INTEGER]) {
+    const projected = projectFleetMachines([machine({
+      hardware: { memory: { totalBytes: value, freeBytes: value } },
+    })]).machines[0].hardware;
+    assert.equal(projected.memoryTotalBytes, value);
+    assert.equal(projected.memoryFreeBytes, value);
+  }
+});
+
 test("bad duplicate ID or missing identity fails closed", () => {
   assert.throws(() => projectFleetMachines([machine(), machine()]), /duplicate_fleet_machine/);
   assert.throws(() => projectFleetMachines([machine({ id: null })]), /invalid_fleet_identity/);
