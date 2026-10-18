@@ -34,9 +34,24 @@ function validatedOrigin(raw) {
   return "";
 }
 
+function discardUpstreamBody(response, reason) {
+  // Never block denial on a potentially stalled or hostile upstream stream.
+  if (response.body) void response.body.cancel(reason).catch(() => {});
+}
+
 async function boundedBody(response) {
-  const len = Number(response.headers.get("content-length") || 0);
-  if (len > MAX_CONTROL_BODY_BYTES) throw new Error("oversized_response");
+  const declaredLength = response.headers.get("content-length");
+  if (declaredLength !== null) {
+    const len = Number(declaredLength);
+    if (!/^\d+$/.test(declaredLength) || !Number.isSafeInteger(len)) {
+      discardUpstreamBody(response, "invalid_content_length");
+      throw new Error("invalid_content_length");
+    }
+    if (len > MAX_CONTROL_BODY_BYTES) {
+      discardUpstreamBody(response, "oversized_declared_length");
+      throw new Error("oversized_response");
+    }
+  }
   if (!response.body) throw new Error("missing_body");
   const reader = response.body.getReader();
   const chunks = [];
@@ -80,10 +95,14 @@ export async function proxyControlRequest({ req, res, url, upstream, appToken, i
     signal: AbortSignal.timeout(CONTROL_REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) {
+    discardUpstreamBody(response, "upstream_denied");
     const code = response.status === 401 || response.status === 403 ? response.status : 502;
     return error(code, code === 401 || code === 403 ? "control_api_denied" : "upstream_unavailable");
   }
-  if (!jsonType.test(response.headers.get("content-type") || "")) return error(502, "invalid_upstream_content_type");
+  if (!jsonType.test(response.headers.get("content-type") || "")) {
+    discardUpstreamBody(response, "invalid_content_type");
+    return error(502, "invalid_upstream_content_type");
+  }
   const body = await boundedBody(response);
   try { JSON.parse(body.toString("utf8")); }
   catch { return error(502, "invalid_upstream_json"); }
