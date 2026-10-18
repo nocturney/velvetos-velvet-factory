@@ -6,6 +6,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY index.html tsconfig.json tsconfig.app.json vite.config.ts ./
 COPY src ./src
+COPY public ./public
 COPY fixtures ./fixtures
 COPY server.mjs fleet-projection.mjs control-proxy-boundary.mjs iap-jwt.mjs ./
 COPY scripts ./scripts

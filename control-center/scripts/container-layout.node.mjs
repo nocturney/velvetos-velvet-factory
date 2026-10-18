@@ -56,6 +56,8 @@ test("P0 release Dockerfile packages server imports and security smoke", () => {
     "npm run build includes smoke:security; Docker build stage must include its test code");
   assert(includesFile(buildFiles, "index.html"), "frontend HTML missing from build");
   assert(includesFile(buildFiles, "src/App.tsx"), "frontend src missing from build");
+  assert(includesFile(buildFiles, "public/favicon.svg") && includesFile(buildFiles, "public/favicon.ico"),
+    "public/ (favicon) missing from build; Vite copies it into dist");
   assert(blocks[0].includes("npm run build"), "must run exact CI build contract in container");
   assert(blocks[1].includes("COPY --from=build /app/dist ./dist"), "missing built browser assets");
   assert(blocks[1].includes('CMD ["node", "server.mjs"]'), "unexpected server entrypoint");
