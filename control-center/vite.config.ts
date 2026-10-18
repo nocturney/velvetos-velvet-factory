@@ -6,6 +6,9 @@ import { classifyControlRequest } from "./control-proxy-boundary.mjs";
 const controlTarget = process.env.VELVETOS_CONTROL_API_URL || "http://127.0.0.1:8080";
 const controlToken = process.env.VELVETOS_CONTROL_API_TOKEN || "";
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
+const CONTROL_PREFIX = "/api/control";
+// Never routable upstream; only reachable if bypass was somehow skipped, and it gets no bearer.
+const DENIED_UPSTREAM_PATH = "/__velvetos_dev_proxy_denied__";
 
 function oneHeader(value: string | string[] | undefined): string | null {
   if (value === undefined) return "";
@@ -55,7 +58,38 @@ function denyDevProxy(req: IncomingMessage): { status: number; error: string } |
   }
   const route = classifyControlRequest(url);
   if (!route.ok) return { status: route.status, error: route.error };
+  // Fail closed on any non-canonical spelling (../, %2e%2e, backslash, percent-encoded
+  // letters). The raw path must be byte-identical to the validated one, so the
+  // path that was checked is exactly the path that is forwarded.
+  const rawPath = (req.url || "").split("?", 1)[0];
+  if (rawPath !== CONTROL_PREFIX + route.path) return { status: 400, error: "non_canonical_path" };
   return null;
+}
+
+// Build the upstream path only from the validated route, like server.mjs does.
+// Returns null when the request is not an allowlisted read.
+function validatedUpstreamPath(rawUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(rawUrl || "/", "http://127.0.0.1");
+  } catch {
+    return null;
+  }
+  const route = classifyControlRequest(url);
+  if (!route.ok) return null;
+  if (rawUrl.split("?", 1)[0] !== CONTROL_PREFIX + route.path) return null;
+  return route.path + url.search;
+}
+
+function isAllowlistedUpstreamPath(path: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(CONTROL_PREFIX + path, "http://127.0.0.1");
+  } catch {
+    return false;
+  }
+  const route = classifyControlRequest(url);
+  return route.ok && route.path + url.search === path;
 }
 
 function rejectDevProxy(res: ServerResponse, status: number, error: string): string {
@@ -75,7 +109,7 @@ function controlProxy(): ProxyOptions {
   return {
     target: controlTarget,
     changeOrigin: false,
-    rewrite: (path) => path.replace(/^\/api\/control/, ""),
+    rewrite: (path) => validatedUpstreamPath(path) ?? DENIED_UPSTREAM_PATH,
     bypass(req, res) {
       const denied = denyDevProxy(req);
       if (!denied || !res) return;
@@ -85,6 +119,11 @@ function controlProxy(): ProxyOptions {
       proxy.on("proxyReq", (proxyReq) => {
         proxyReq.removeHeader("authorization");
         proxyReq.removeHeader("x-velvetos-token");
+        // Defense in depth: the bearer goes only to an allowlisted upstream path.
+        if (proxyReq.method !== "GET" || !isAllowlistedUpstreamPath(proxyReq.path)) {
+          proxyReq.destroy(new Error("dev_proxy_denied_upstream_path"));
+          return;
+        }
         if (controlToken) proxyReq.setHeader("Authorization", `Bearer ${controlToken}`);
       });
     },
