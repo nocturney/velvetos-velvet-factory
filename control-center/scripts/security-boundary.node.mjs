@@ -137,6 +137,14 @@ test("M2 gateway read boundary against untrusted synthetic upstream", async () =
       assert((staticRes.headers.get("content-security-policy") || "").includes("script-src 'self'"), "missing CSP");
       assert.equal(staticRes.headers.get("x-frame-options"), "DENY");
       console.log("PORTAL_SECURITY_PASS static_csp_and_clickjacking");
+      for (const [path, type] of [["/favicon.ico", "image/x-icon"], ["/favicon.svg", "image/svg+xml"]]) {
+        const icon = await fetch(origin + path);
+        assert.equal(icon.status, 200, path + " not served");
+        assert.equal(icon.headers.get("content-type"), type, path + " wrong type");
+        assert.equal(icon.headers.get("cache-control"), "no-cache", path + " unhashed file cached immutable");
+        assert((await icon.arrayBuffer()).byteLength > 0, path + " empty");
+      }
+      console.log("PORTAL_SECURITY_PASS favicon_served");
     } else {
       // Built assets may be absent when npm test runs before npm run build.
       assert([404, 502].includes(staticRes.status), "built assets absent should not be served");

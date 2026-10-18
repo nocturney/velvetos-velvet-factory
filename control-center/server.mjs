@@ -1,6 +1,6 @@
 import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectFleetMachines } from "./fleet-projection.mjs";
 import { proxyControlRequest } from "./control-proxy-boundary.mjs";
@@ -156,7 +156,9 @@ async function staticFile(res, pathname) {
   const body = await readFile(file);
   res.writeHead(200, {
     "Content-Type": mime[extname(file)] || "application/octet-stream",
-    "Cache-Control": file.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable",
+    // Only Vite's content-hashed dist/assets/* are immutable; unhashed root files (index.html,
+    // favicon.*) revalidate so an updated file is picked up.
+    "Cache-Control": file.startsWith(join(root, "assets") + sep) ? "public, max-age=31536000, immutable" : "no-cache",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "X-Frame-Options": "DENY",

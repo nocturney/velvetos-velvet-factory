@@ -115,8 +115,8 @@ test("enabled IAP denies every HTTP route before upstream credentials or static 
       await new Promise((resolve) => setTimeout(resolve, 40));
     }
     assert(ready, "IAP guard HTTP startup timed out");
-    for (const path of ["/", "/health", "/assets/app.js", "/api/control/v1/snapshot",
-      "/api/fleet/v1/machines"]) {
+    for (const path of ["/", "/health", "/assets/app.js", "/favicon.ico", "/favicon.svg",
+      "/api/control/v1/snapshot", "/api/fleet/v1/machines"]) {
       const res = await fetch(origin + path);
       assert.equal(res.status, 401, path + " did not deny anonymous access");
       assert.equal(res.headers.get("cache-control"), "no-store");
