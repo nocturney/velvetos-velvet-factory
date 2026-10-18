@@ -6,7 +6,7 @@ const asText = (value, limit = 180) =>
   typeof value === "string" && value.length > 0 && value.length <= limit ? value : null;
 
 const asBytes = (value) =>
-  typeof value === "number" && Number.isFinite(value) && value >= 0
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value : null;
 
 const asTimestamp = (value) => {
