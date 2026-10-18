@@ -9,6 +9,9 @@ const IAP_JWKS_URL = "https://www.gstatic.com/iap/verify/public_key-jwk";
 const MAX_JWT_LENGTH = 8192;
 const MAX_JWKS_BYTES = 64 * 1024;
 const JWKS_CACHE_MS = 5 * 60 * 1000;
+// If a refresh fails, keys from the last successful, fully validated fetch stay
+// usable for at most this long after that fetch. After that: fail closed.
+export const JWKS_STALE_GRACE_MS = 60 * 60 * 1000;
 const ALLOWED_AUDIENCE = /^\/projects\/[0-9]+\/(?:locations\/[a-z0-9-]+\/services\/[a-z][a-z0-9-]*|global\/backendServices\/[0-9]+)$/;
 
 function decodedSegment(segment, maximum = 6144) {
@@ -67,11 +70,13 @@ async function boundedJwks(response) {
   return keys;
 }
 
-export function createIapJwksCache({ fetchImpl = fetch, nowMillis = Date.now } = {}) {
+export function createIapJwksCache({ fetchImpl = fetch, nowMillis = Date.now, warn = console.warn } = {}) {
   let keys = new Map();
   let expiresAt = 0;
+  let fetchedAt = -Infinity;
   let lastAttempt = -Infinity;
   let inFlight = null;
+  let usingStale = false;
   async function refresh() {
     if (inFlight) return inFlight;
     if (nowMillis() - lastAttempt < 5000) throw new Error("iap_jwks_retry_cooldown");
@@ -83,14 +88,31 @@ export function createIapJwksCache({ fetchImpl = fetch, nowMillis = Date.now } =
       });
       const next = await boundedJwks(response);
       keys = next;
-      expiresAt = nowMillis() + JWKS_CACHE_MS;
+      fetchedAt = nowMillis();
+      expiresAt = fetchedAt + JWKS_CACHE_MS;
+      usingStale = false;
     })();
     try { await inFlight; } finally { inFlight = null; }
   }
+  // Refresh; on failure keep the last validated keys only inside the grace window.
+  async function refreshOrStale() {
+    try {
+      await refresh();
+    } catch (error) {
+      if (keys.size && nowMillis() - fetchedAt <= JWKS_STALE_GRACE_MS) {
+        if (!usingStale) warn("iap_jwks_refresh_failed_using_last_validated_keys");
+        usingStale = true;
+        return;
+      }
+      keys = new Map();
+      throw error;
+    }
+  }
   return {
     async getKey(kid) {
-      if (nowMillis() >= expiresAt) await refresh();
-      if (!keys.has(kid) && nowMillis() - lastAttempt >= 30000) await refresh();
+      if (nowMillis() - fetchedAt > JWKS_STALE_GRACE_MS) keys = new Map();
+      if (nowMillis() >= expiresAt) await refreshOrStale();
+      if (!keys.has(kid) && nowMillis() - lastAttempt >= 30000) await refreshOrStale();
       return keys.get(kid) || null;
     },
   };
@@ -106,6 +128,8 @@ export async function verifyIapAssertion(token, { audience, allowedEmails = [], 
     const payload = decodedSegment(parts[1], 6144);
     if (header.alg !== "ES256" || typeof header.kid !== "string" ||
         !header.kid || header.kid.length > 128) return false;
+    // RFC 7515 4.1.11: no critical extensions are understood, so any `crit` is rejected.
+    if (Object.hasOwn(header, "crit")) return false;
     if (payload.iss !== IAP_ISSUER || payload.aud !== audience ||
         typeof payload.sub !== "string" || !payload.sub ||
         !Number.isSafeInteger(payload.iat) || !Number.isSafeInteger(payload.exp) ||
@@ -128,10 +152,31 @@ export async function verifyIapAssertion(token, { audience, allowedEmails = [], 
   }
 }
 
+// Startup policy for VELVETOS_REQUIRE_IAP:
+// - unset or "0": disabled (warns if IAP audience/emails are configured anyway).
+// - "" (set but empty, e.g. a cleared Cloud Run value): disabled with a warning,
+//   but ONLY if no other IAP setting is present. With an audience or email
+//   allowlist present the intent to enable is clear, so startup fails instead of
+//   silently running unguarded.
+// - "1": enabled; a missing/invalid audience or allowlist fails startup.
+// - anything else: startup fails.
+// A startup failure on Cloud Run leaves the new revision not-ready, so traffic stays
+// on the previous ready revision; restarts are rate-limited by the platform.
 export function createIapGuard(env = process.env, options = {}) {
-  const setting = env.VELVETOS_REQUIRE_IAP ?? "0";
+  const warn = options.warn || console.warn;
+  const raw = env.VELVETOS_REQUIRE_IAP;
+  const intent = Boolean(env.VELVETOS_IAP_AUDIENCE || env.VELVETOS_IAP_ALLOWED_EMAILS);
+  if (raw === "") {
+    if (intent) throw new Error("empty_iap_requirement_with_iap_settings");
+    warn("iap_guard_disabled: VELVETOS_REQUIRE_IAP is set but empty; treating as 0");
+    return { enabled: false, verify: async () => true };
+  }
+  const setting = raw ?? "0";
   if (setting !== "0" && setting !== "1") throw new Error("invalid_iap_requirement_setting");
-  if (setting === "0") return { enabled: false, verify: async () => true };
+  if (setting === "0") {
+    if (intent) warn("iap_guard_disabled: VELVETOS_REQUIRE_IAP=0 while IAP audience/emails are configured");
+    return { enabled: false, verify: async () => true };
+  }
   const audience = env.VELVETOS_IAP_AUDIENCE || "";
   if (!ALLOWED_AUDIENCE.test(audience)) throw new Error("missing_or_invalid_iap_audience");
   const configured = env.VELVETOS_IAP_ALLOWED_EMAILS || "";
