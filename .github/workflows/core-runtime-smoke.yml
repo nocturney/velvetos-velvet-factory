@@ -33,12 +33,18 @@ on:
     # Detect Core main contract drift even when this repo receives no commits.
     - cron: "17 3 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   verify-attached-core:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout frontend
         uses: actions/checkout@v7
+        with:
+          # Later steps run repo scripts. Do not leave GITHUB_TOKEN in this checkout.
+          persist-credentials: false
 
       # Same runtime as Core's own sensor CI (check-all.yml): Python 3.11 +
       # requirements-sensors.txt + ffmpeg. Without these, Core check-all fails

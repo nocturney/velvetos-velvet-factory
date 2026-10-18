@@ -17,7 +17,7 @@ npm run dev
 npm run build
 ```
 
-Set `VITE_CONTROL_API_BASE` only when the host does not expose the default same-origin `/api/control` adapter.
+The browser always calls the same-origin `/api/control` adapter. A build-time control URL is not accepted, because Vite would inline it into the bundle.
 The browser must never receive the Cloud Run bearer secret directly; production auth belongs in a server-side/site adapter.
 
 ## Verification
