@@ -109,3 +109,47 @@ front door, record the exact blocker and fix the header/audience configuration i
 a separately reviewed rollout. Never deploy with `--allow-unauthenticated`.
 
 Official reference: https://cloud.google.com/iap/docs/signed-headers-howto
+
+## IAP guard canary (0% traffic, staging)
+
+`scripts/iap-guard-canary.sh` is the runbook for turning the guard on for
+`velvetos-control-center-staging` (`instamcp`, `me-west1`). It is **dry-run by default**
+and **never changes traffic percentages**. Every deploy it builds uses `--no-traffic
+--tag iapcanary`. Promotion and full rollback are printed as manual commands for a
+separately reviewed gate.
+
+Prerequisites:
+- the `/liveness` + enablement-safety change is merged, and CI is green on that exact
+  `main` SHA
+- an image built from that SHA, referenced **by digest**
+- the audience read from `preflight` (`/projects/<projectNumber>/locations/me-west1/services/velvetos-control-center-staging`)
+  and cross-checked against the console "Signed Header JWT Audience" or an authorized
+  assertion
+
+```sh
+scripts/iap-guard-canary.sh preflight                       # read-only facts, env names only
+scripts/iap-guard-canary.sh deploy --image REF@sha256:... --audience /projects/N/locations/me-west1/services/velvetos-control-center-staging
+CANARY_CONFIRM=deploy-no-traffic scripts/iap-guard-canary.sh deploy ... --apply
+scripts/iap-guard-canary.sh verify                          # anonymous denial + revision Ready + owner steps
+CANARY_CONFIRM=remove-tag scripts/iap-guard-canary.sh rollback --apply
+```
+
+Pass criteria, all required before any promotion discussion:
+1. Traffic percentages are identical before and after the deploy. The canary revision
+   is at 0% with tag `iapcanary`.
+2. The canary revision is Ready with the HTTP liveness probe on `/liveness`, and its
+   logs show no `iap_guard_disabled`, startup errors or liveness failures.
+3. Anonymous `/`, `/health`, `/liveness` and `/api/control/v1/snapshot` on the tag URL
+   all get 302 to Google sign-in, or 401/403. IAP sits in front of every path, so the
+   anonymous 200 on `/liveness` exists only for Cloud Run's internal probe.
+4. **Owner Safari (iPhone and iPad, off-LAN):** after IAP sign-in on the tag URL the
+   portal loads, data renders, and `/health` returns JSON 200. A private window gets
+   Google sign-in. A 401 `{"error":"unauthorized"}` after sign-in means the audience or
+   assertion path is wrong: roll back, do not promote.
+
+Rollback: `gcloud run services update-traffic velvetos-control-center-staging --project
+instamcp --region me-west1 --remove-tags iapcanary`. The 0% revision then serves nothing.
+If traffic was ever moved by a separate action:
+`gcloud run services update-traffic velvetos-control-center-staging --project instamcp
+--region me-west1 --to-revisions=PREVIOUS_REVISION=100`, with the revision taken from the
+`preflight` output.
