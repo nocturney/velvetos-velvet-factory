@@ -4,10 +4,13 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectFleetMachines } from "./fleet-projection.mjs";
 import { proxyControlRequest } from "./control-proxy-boundary.mjs";
+import { createIapGuard } from "./iap-jwt.mjs";
 
 const root = fileURLToPath(new URL("./dist/", import.meta.url));
 const port = Number(process.env.PORT || 8080);
 const bindHost = process.env.HOST || "0.0.0.0";
+// An explicit guard setting must be valid before the listener starts.
+const iapGuard = createIapGuard();
 const fleetOriginEnv = process.env.VELVETOS_FLEET_API_URL || "";
 const fleetReadToken = process.env.VELVETOS_FLEET_READONLY_TOKEN || "";
 
@@ -164,6 +167,10 @@ async function staticFile(res, pathname) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    // IAP JWT verifies the request itself, before health, static or token-bearing proxy reads.
+    // The current staging config remains backward-compatible until explicit gated enablement.
+    if (iapGuard.enabled && !(await iapGuard.verify(req.headers)))
+      return json(res, 401, { error: "unauthorized" });
     const url = new URL(req.url || "/", "http://localhost");
     if (url.pathname === "/health") {
       return json(res, 200, {
