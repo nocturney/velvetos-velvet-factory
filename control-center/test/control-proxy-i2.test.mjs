@@ -4,11 +4,12 @@ import { MAX_CONTROL_BODY_BYTES, proxyControlRequest } from "../control-proxy-bo
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 
-function streamedResponse(status, headers) {
+function streamedResponse(status, headers, closeAfterChunk = false) {
   let canceled = false;
   const body = new ReadableStream({
     start(controller) {
       controller.enqueue(new TextEncoder().encode('{"ok":true}'));
+      if (closeAfterChunk) controller.close();
     },
     cancel() { canceled = true; },
   });
@@ -81,7 +82,7 @@ test("valid bounded JSON still passes unchanged", async () => {
   const { response, wasCanceled } = streamedResponse(200, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": String(Buffer.byteLength(payload)),
-  });
+  }, true);
   const result = await proxyFixture(response);
   expect(result.status).toBe(200);
   expect(JSON.parse(result.data.toString("utf8"))).toEqual({ ok: true });
