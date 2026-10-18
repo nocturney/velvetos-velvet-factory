@@ -62,3 +62,50 @@ Before any production cutover:
 8. direct POST is 405
 9. `/api/control/v1/actions` is 404
 10. authenticated Site/front-door roundtrip is verified from the actual deployed UI
+
+## Optional signed IAP assertion verification (M2 source hardening, not activated)
+
+The Node host can provide **defense in depth** against accidental IAP bypass. By
+**default** `VELVETOS_REQUIRE_IAP` is unset (equivalent to `0`), preserving the
+current staging routing. This source addition does **not** change IAM, Cloud Run,
+traffic, DNS or the deployed revision, and **does not replace IAP**.
+
+Enable only after verifying the exact staging IAP-signed JWT audience and proving
+an owner can access a 0%-traffic canary/revision through the authenticated front
+door, with a reversible rollout. Do not invent the project number, backend ID,
+service name, user email, or a new audience. Use only an audience observed in
+an authorized IAP assertion for the intended service:
+
+```text
+VELVETOS_REQUIRE_IAP=1
+VELVETOS_IAP_AUDIENCE=/projects/PROJECT_NUMBER/locations/REGION/services/SERVICE_NAME
+# Optional strict allowlist when that signed claim is present:
+VELVETOS_IAP_ALLOWED_EMAILS=verified-owner@example.com
+```
+
+A Google Cloud Load Balancer backend-service IAP audience instead uses
+`/projects/PROJECT_NUMBER/global/backendServices/BACKEND_SERVICE_ID`.
+These values are **placeholders**, not deployment instructions or verified
+settings. The `VELVETOS_IAP_AUDIENCE` value must be exact. Any setting other
+than `0` or `1`, any missing/malformed enabled audience, or a malformed email
+allowlist prevents the server from starting.
+
+With the guard enabled, **every route** (`/`, assets, `/health`, `/api/*`) first
+requires `x-goog-iap-jwt-assertion` with Google's `ES256` signature and key ID,
+issuer `https://cloud.google.com/iap`, exact audience, nonexpired claims and
+(optional) exact allowlisted email. No assertion or a key-network failure yields
+`401` **before** any credentialed upstream requests or static content. Google's
+public JWKS is fetched only from the pinned
+`https://www.gstatic.com/iap/verify/public_key-jwk` URL with bounded payload,
+short timeout and five-minute in-memory key cache. An unsigned
+`x-goog-authenticated-user-email` header is **not trusted**.
+
+The canary should prove both owner Safari signed request flow and unauthenticated
+401 for static/API content, inspect error/rollback and freshness on real
+Core/Fleet read-only data, then require the separate deployment/traffic gate.
+If IAP does not forward the expected signed assertion to the current service,
+**do not enable this option on staging/production**; preserve the current private
+front door, record the exact blocker and fix the header/audience configuration in
+a separately reviewed rollout. Never deploy with `--allow-unauthenticated`.
+
+Official reference: https://cloud.google.com/iap/docs/signed-headers-howto

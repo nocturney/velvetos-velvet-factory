@@ -23,6 +23,9 @@ jobs:
         working-directory: control-center
     steps:
       - uses: actions/checkout@v7
+        with:
+          # This job never pushes; do not leave GITHUB_TOKEN in .git while npm scripts run.
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: "24.21.0"
