@@ -139,4 +139,45 @@ describe("portal Fleet reader", () => {
     expect(init.method).toBe("GET");
     expect(init.credentials).toBe("same-origin");
   });
+
+  describe("signed snapshot transport", () => {
+    const later = () => new Date(Date.now() + 60_000).toISOString();
+    const earlier = () => new Date(Date.now() - 1_000).toISOString();
+
+    it("shows a verified signed copy only with its validity window", async () => {
+      const validUntil = later();
+      stubFleet(snapshot([machine()], { transport: "signed_snapshot", validUntil }));
+      const result = await getFleetMachines();
+      expect(result.transport).toBe("signed_snapshot");
+      expect(result.validUntil).toBe(validUntil);
+      expect(result.machines[0].status).toBe("online");
+    });
+
+    it("refuses an expired signed copy instead of showing it as current", async () => {
+      stubFleet(snapshot([machine()], { transport: "signed_snapshot", validUntil: earlier() }));
+      await expect(getFleetMachines()).rejects.toThrow("Fleet snapshot expired");
+    });
+
+    it("fails closed on an unknown transport or a signed copy without a usable expiry", async () => {
+      for (const extra of [
+        { transport: "live_rpc", validUntil: later() },
+        { transport: "signed_snapshot" },
+        { transport: "signed_snapshot", validUntil: "tomorrow" },
+        { transport: null, validUntil: later() },
+      ]) {
+        stubFleet(snapshot([machine()], extra));
+        await expect(getFleetMachines()).rejects.toThrow(/Invalid Fleet schema/);
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("still rejects a signed copy with a duplicate or unsafe machine", async () => {
+      stubFleet(snapshot([machine(), machine()], { transport: "signed_snapshot", validUntil: later() }));
+      await expect(getFleetMachines()).rejects.toThrow(/Duplicate Fleet machine/);
+      vi.unstubAllGlobals();
+
+      stubFleet(snapshot([machine({ id: "" })], { transport: "signed_snapshot", validUntil: later() }));
+      await expect(getFleetMachines()).rejects.toThrow(/Invalid Fleet machine identity/);
+    });
+  });
 });
