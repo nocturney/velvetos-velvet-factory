@@ -31,6 +31,8 @@ node scripts/capture-qa.mjs
 
 The visual QA script uses the locally installed Chrome through `playwright-core`; it does not download or pin a browser build.
 
+On Windows, `scripts/iap-guard-canary.node.mjs` needs Git for Windows (`C:\Program Files\Git\bin\bash.exe`); it uses that bash and its `usr/bin` explicitly, never WSL's `bash.exe`, and fails with an explicit error if Git Bash is missing. The fake gcloud is the only gcloud it runs.
+
 Production hosting and the fail-closed authentication boundary are documented in `DEPLOY.md`.
 
 ## Unified VelvetOS portal — Fleet vertical slice (2026-10-14)
@@ -39,6 +41,13 @@ Fleet Console is the canonical workstation data/operations owner. The
 existing Control Center now offers a `Fleet` tab backed by the local-only,
 read-only projection at `GET /api/fleet/v1/machines`. This **does not**
 deploy a second management service or change Fleet's production code.
+
+The browser reader (`src/fleet-api.ts`) re-validates every machine record.
+Unrecognised platform/status/freshness values become `unknown`; a machine is
+shown as reported online only when it is `live` with a valid `lastSeen`,
+otherwise its status is `unknown` and `stale`/`unknown` freshness is kept.
+A record without a valid `id` and `name`, a duplicate ID, or a count mismatch
+rejects the whole snapshot.
 
 For an on-host, non-persistent integration smoke on Chris Windows,
 the running existing Fleet service must be accessible on

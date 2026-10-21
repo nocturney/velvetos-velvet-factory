@@ -41,7 +41,8 @@ async function boundedJwks(response) {
       if (done) break;
       bytes += value.byteLength;
       if (bytes > MAX_JWKS_BYTES) {
-        await reader.cancel("iap_jwks_too_large");
+        // Cancellation may never settle; denial must not wait for untrusted stream cleanup.
+        void reader.cancel("iap_jwks_too_large").catch(() => {});
         throw new Error("iap_jwks_too_large");
       }
       buffers.push(Buffer.from(value));
