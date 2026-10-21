@@ -40,6 +40,13 @@ existing Control Center now offers a `Fleet` tab backed by the local-only,
 read-only projection at `GET /api/fleet/v1/machines`. This **does not**
 deploy a second management service or change Fleet's production code.
 
+The browser reader (`src/fleet-api.ts`) re-validates every machine record.
+Unrecognised platform/status/freshness values become `unknown`; a machine is
+shown as reported online only when it is `live` with a valid `lastSeen`,
+otherwise its status is `unknown` and `stale`/`unknown` freshness is kept.
+A record without a valid `id` and `name`, a duplicate ID, or a count mismatch
+rejects the whole snapshot.
+
 For an on-host, non-persistent integration smoke on Chris Windows,
 the running existing Fleet service must be accessible on
 `http://127.0.0.1:4173`. Set `FLEET_VIEWER_TOKEN_FILE` to the existing
