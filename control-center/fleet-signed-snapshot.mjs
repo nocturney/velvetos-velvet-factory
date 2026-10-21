@@ -73,7 +73,8 @@ function withoutInventedOnline(payload) {
   };
 }
 
-function signedBytes(v) {
+// Pure serializer shared with the source-only publisher; it signs nothing itself.
+export function signedBytes(v) {
   return Buffer.from("VELVETOS/FLEET/SIGNED-SNAPSHOT/v1\n" + JSON.stringify({
     schema: v.schema, keyId: v.keyId, sequence: v.sequence,
     issuedAt: v.issuedAt, expiresAt: v.expiresAt, payload: v.payload,
