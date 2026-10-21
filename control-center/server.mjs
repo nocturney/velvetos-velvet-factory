@@ -79,8 +79,8 @@ async function fleetMachines(req, res, url) {
   if (req.method !== "GET") return json(res, 405, { error: "method_not_allowed" });
   if (url.pathname !== "/api/fleet/v1/machines")
     return json(res, 404, { error: "not_found" });
-  if (url.search) return json(res, 400, { error: "unexpected_query" });
   if (signedFleetSource) {
+    if (url.search) return json(res, 400, { error: "unexpected_query" });
     // Verified source only: never fall back to the local viewer bridge if the
     // snapshot is stale, malformed, unsigned, replayed or unreachable.
     try { return json(res, 200, await signedFleetSource()); }
