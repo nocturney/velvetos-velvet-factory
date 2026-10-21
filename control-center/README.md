@@ -31,6 +31,8 @@ node scripts/capture-qa.mjs
 
 The visual QA script uses the locally installed Chrome through `playwright-core`; it does not download or pin a browser build.
 
+On Windows, `scripts/iap-guard-canary.node.mjs` needs Git for Windows (`C:\Program Files\Git\bin\bash.exe`); it uses that bash and its `usr/bin` explicitly, never WSL's `bash.exe`, and fails with an explicit error if Git Bash is missing. The fake gcloud is the only gcloud it runs.
+
 Production hosting and the fail-closed authentication boundary are documented in `DEPLOY.md`.
 
 ## Unified VelvetOS portal — Fleet vertical slice (2026-10-14)
