@@ -50,17 +50,25 @@ export function FleetModule({ definition }: ModuleProps) {
     provenance: {
       source: snapshot?.source ?? "Velvet Fleet Console",
       verifiedAt: snapshot?.fetchedAt,
-      freshness: snapshot ? "fleet_snapshot" : "unknown",
+      freshness: snapshot?.transport === "signed_snapshot"
+        ? "fleet_signed_snapshot" : (snapshot ? "fleet_snapshot" : "unknown"),
     },
   };
 
+  const signed = snapshot?.transport === "signed_snapshot";
   return <ModuleFrame collection={collection} definition={definition}>
     <div dir="rtl">
       <div className="row">
         <b>מחשבים הרשומים ב־Fleet: {snapshot ? snapshot.count : "—"}</b>
-        <span>{snapshot ? "נשלף: " + date(snapshot.fetchedAt) : (loading ? "טוען..." : "מנותק")}</span>
+        <span>{snapshot
+          ? (signed
+            ? "עותק חתום: " + date(snapshot.fetchedAt) + " · תקף עד " + date(snapshot.validUntil ?? null)
+            : "נשלף: " + date(snapshot.fetchedAt))
+          : (loading ? "טוען..." : "מנותק")}</span>
       </div>
-      <p>רשימת מחשבים מה־Fleet Console הקיים. מצב וזמינות הם נתוני המקור; זו אינה טלמטריית CPU בזמן אמת.</p>
+      <p>{signed
+        ? "עותק מצב חתום וקצר־חיים מה־Fleet Console. הסטטוסים דווחו בזמן האיסוף ואינם חיבור חי או הרשאה לבצע פעולה במחשבים."
+        : "רשימת מחשבים מה־Fleet Console הקיים. מצב וזמינות הם נתוני המקור; זו אינה טלמטריית CPU בזמן אמת."}</p>
       {snapshot?.machines.length === 0 && <div className="quiet-state">אין מחשבים רשומים ב־Fleet.</div>}
       {snapshot?.machines.map((machine) => <div className="row row-rich" key={machine.id}>
         <div>

@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectFleetMachines } from "./fleet-projection.mjs";
+import { makeSignedFleetSource } from "./fleet-snapshot-source.mjs";
 import { proxyControlRequest } from "./control-proxy-boundary.mjs";
 import { createIapGuard } from "./iap-jwt.mjs";
 
@@ -13,6 +14,10 @@ const bindHost = process.env.HOST || "0.0.0.0";
 const iapGuard = createIapGuard();
 const fleetOriginEnv = process.env.VELVETOS_FLEET_API_URL || "";
 const fleetReadToken = process.env.VELVETOS_FLEET_READONLY_TOKEN || "";
+// Read-only signed snapshot. Its only trust boundary is the IAP guard, so it
+// refuses to start unless IAP is enforced.
+const signedFleetSource = makeSignedFleetSource(process.env, { bindHost });
+if (signedFleetSource && !iapGuard.enabled) throw new Error("signed_fleet_requires_iap");
 
 // Intentionally isolated first integration: loopback-only control plane and
 // the existing Fleet read-only viewer role. Remote writes remain blocked.
@@ -70,10 +75,17 @@ async function boundedLocalFleetJson(response) {
   return JSON.parse(Buffer.concat(parts, size).toString("utf8"));
 }
 
-async function fleetMachines(req, res, pathname) {
+async function fleetMachines(req, res, url) {
   if (req.method !== "GET") return json(res, 405, { error: "method_not_allowed" });
-  if (pathname !== "/api/fleet/v1/machines")
+  if (url.pathname !== "/api/fleet/v1/machines")
     return json(res, 404, { error: "not_found" });
+  if (signedFleetSource) {
+    if (url.search) return json(res, 400, { error: "unexpected_query" });
+    // Verified source only: never fall back to the local viewer bridge if the
+    // snapshot is stale, malformed, unsigned, replayed or unreachable.
+    try { return json(res, 200, await signedFleetSource()); }
+    catch { return json(res, 503, { error: "fleet_snapshot_unavailable" }); }
+  }
   if (!isLocalRequest(req)) return json(res, 403, { error: "local_only" });
   const origin = localFleetOrigin();
   if (!origin) return json(res, 503, { error: "fleet_not_configured" });
@@ -189,7 +201,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (url.pathname.startsWith("/api/control/")) return await proxyControl(req, res, url);
-    if (url.pathname.startsWith("/api/fleet/")) return await fleetMachines(req, res, url.pathname);
+    if (url.pathname.startsWith("/api/fleet/")) return await fleetMachines(req, res, url);
     if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "method_not_allowed" });
     return await staticFile(res, url.pathname);
   } catch {

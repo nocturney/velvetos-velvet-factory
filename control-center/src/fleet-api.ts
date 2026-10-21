@@ -23,6 +23,9 @@ export interface FleetMachinesSnapshot {
   fetchedAt: string;
   count: number;
   machines: FleetMachine[];
+  // Set only for a verified, short-lived signed copy served by the portal.
+  transport?: "signed_snapshot";
+  validUntil?: string;
 }
 
 const MAX_FLEET_MACHINES = 300;
@@ -115,11 +118,27 @@ export async function getFleetMachines(signal?: AbortSignal): Promise<FleetMachi
   const machines = data.machines.map(readMachine);
   if (new Set(machines.map((machine) => machine.id)).size !== machines.length)
     throw new Error("Duplicate Fleet machine");
+
+  if (data.transport === undefined) {
+    return {
+      schema: "velvetos.portal.fleet-machines.v1",
+      source: "Velvet Fleet Console",
+      fetchedAt,
+      count: machines.length,
+      machines,
+    };
+  }
+  // A signed copy is shown only while it is still inside its validity window.
+  const validUntil = asTimestamp(data.validUntil);
+  if (data.transport !== "signed_snapshot" || !validUntil) throw new Error("Invalid Fleet schema");
+  if (Date.parse(validUntil) <= Date.now()) throw new Error("Fleet snapshot expired");
   return {
     schema: "velvetos.portal.fleet-machines.v1",
     source: "Velvet Fleet Console",
     fetchedAt,
     count: machines.length,
     machines,
+    transport: "signed_snapshot",
+    validUntil,
   };
 }
