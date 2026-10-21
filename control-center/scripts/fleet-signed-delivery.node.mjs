@@ -166,6 +166,27 @@ test("an async writer that resolves is awaited and counts as delivered", async (
   console.log("FLEET_DELIVERY_PASS async_writer_resolves_then_counts_delivered");
 });
 
+test("an envelope that expires while the write is pending is not reported as delivered", async () => {
+  const c = clock();
+  let expireFirstWrite = true;
+  const { writes, persistSnapshot } = store(() => {
+    if (expireFirstWrite) {
+      expireFirstWrite = false;
+      c.set(T0 + 60_000); // only the first slow write completes at expiry
+    }
+    return Promise.resolve("stored_synthetic");
+  });
+  const deliver = adapterFor(c, { persistSnapshot });
+  await assert.rejects(deliver([machine()]), /snapshot_expired_before_durable_completion/);
+  assert.equal(writes.length, 1, "the write was attempted while the envelope was still valid");
+  c.set(T0);
+  const next = await deliver([machine()]);
+  assert.equal(writes.length, 2);
+  assert.equal(writes[1].sequence, next.sequence);
+  assert(next.sequence > writes[0].sequence, "the expired write was not treated as delivered");
+  console.log("FLEET_DELIVERY_PASS expired_during_write_not_reported_delivered");
+});
+
 test("an async writer rejection is not counted as delivered and a later retry succeeds", async () => {
   const c = clock();
   let fail = true;

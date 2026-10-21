@@ -45,6 +45,9 @@ export function makeSnapshotDeliveryAdapter({
       } catch (cause) {
         throw new Error("snapshot_delivery_persist_failed", { cause });
       }
+      // The write may outlive the validity window. The reader refuses an envelope once
+      // expiresAt <= now, so a durable write that completed after expiry is not a delivery.
+      if (Date.parse(envelope.expiresAt) <= now()) throw new Error("snapshot_expired_before_durable_completion");
       delivered = envelope.sequence;
       return { sequence: envelope.sequence, expiresAt: envelope.expiresAt };
     } finally {
