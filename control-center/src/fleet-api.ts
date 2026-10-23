@@ -71,6 +71,14 @@ function readMachine(raw: unknown): FleetMachine {
   const os = asRecord(record.os) ?? {};
   const hardware = asRecord(record.hardware) ?? {};
   const memory = asRecord(hardware.memory) ?? {};
+  // The canonical Fleet projection (both local and signed) flattens these
+  // counters. Preserve the legacy nested fixture shape only when a flat field
+  // is absent; an explicit invalid/null canonical value must not be replaced
+  // by a conflicting nested value.
+  const totalBytes = Object.hasOwn(hardware, "memoryTotalBytes")
+    ? hardware.memoryTotalBytes : memory.totalBytes;
+  const freeBytes = Object.hasOwn(hardware, "memoryFreeBytes")
+    ? hardware.memoryFreeBytes : memory.freeBytes;
   const cores = hardware.cpuCores;
 
   return {
@@ -85,8 +93,8 @@ function readMachine(raw: unknown): FleetMachine {
     hardware: {
       cpu: asText(hardware.cpu, 160),
       cpuCores: typeof cores === "number" && Number.isInteger(cores) && cores >= 0 ? cores : null,
-      memoryTotalBytes: asBytes(memory.totalBytes),
-      memoryFreeBytes: asBytes(memory.freeBytes),
+      memoryTotalBytes: asBytes(totalBytes),
+      memoryFreeBytes: asBytes(freeBytes),
     },
   };
 }
