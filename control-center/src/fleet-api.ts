@@ -28,6 +28,18 @@ export interface FleetMachinesSnapshot {
   validUntil?: string;
 }
 
+// The server verified the signed envelope at fetch time, but a browser can keep
+// displaying the same React state after its short TTL elapses. Check validity
+// again at presentation time; never relabel an expired copy as fresh.
+export function displayableFleetSnapshot(
+  snapshot: FleetMachinesSnapshot | null, nowMs = Date.now(),
+): FleetMachinesSnapshot | null {
+  if (!snapshot || snapshot.transport !== "signed_snapshot") return snapshot;
+  const expiresMs = Date.parse(snapshot.validUntil ?? "");
+  return Number.isFinite(nowMs) && Number.isFinite(expiresMs) && expiresMs > nowMs
+    ? snapshot : null;
+}
+
 const MAX_FLEET_MACHINES = 300;
 const PLATFORMS = ["windows", "macos", "linux", "unknown"] as const;
 const STATUSES = ["online", "offline", "unknown"] as const;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getFleetMachines, type FleetMachinesSnapshot } from "../fleet-api";
+import { displayableFleetSnapshot, getFleetMachines, type FleetMachinesSnapshot } from "../fleet-api";
 import type { ModuleProps } from "../types";
 import { ModuleFrame } from "./shared";
 
@@ -15,7 +15,8 @@ function date(value: string | null): string {
 }
 
 export function FleetModule({ definition }: ModuleProps) {
-  const [snapshot, setSnapshot] = useState<FleetMachinesSnapshot | null>(null);
+  const [loadedSnapshot, setSnapshot] = useState<FleetMachinesSnapshot | null>(null);
+  const [, forceExpiryCheck] = useState(0);
   const [error, setError] = useState("טוען נתונים מ־Fleet...");
   const [loading, setLoading] = useState(true);
 
@@ -42,11 +43,38 @@ export function FleetModule({ definition }: ModuleProps) {
     return () => { active = false; controller.abort(); window.clearInterval(timer); };
   }, []);
 
+  // A successful GET is only valid until its signed deadline, not until the
+  // next 30-second poll. Wake React at that exact boundary and on tab resume.
+  useEffect(() => {
+    if (loadedSnapshot?.transport !== "signed_snapshot") return;
+    let expiryTimer: number | undefined;
+    const checkExpiry = () => {
+      const leftMs = Date.parse(loadedSnapshot.validUntil ?? "") - Date.now();
+      if (Number.isFinite(leftMs) && leftMs > 0) {
+        expiryTimer = window.setTimeout(checkExpiry, Math.max(1, Math.min(leftMs, 2_147_000_000)));
+      } else {
+        forceExpiryCheck((current) => current + 1);
+      }
+    };
+    const onResume = () => forceExpiryCheck((current) => current + 1);
+    checkExpiry();
+    window.addEventListener("focus", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+      window.removeEventListener("focus", onResume);
+      document.removeEventListener("visibilitychange", onResume);
+    };
+  }, [loadedSnapshot]);
+
+  const snapshot = displayableFleetSnapshot(loadedSnapshot);
+  const errorForDisplay = loadedSnapshot && !snapshot ? "עותק Fleet חתום פג תוקף" : error;
+
   const collection = {
     state: snapshot ? "ready" as const : "unavailable" as const,
     freshness: snapshot ? "fresh" as const : "unknown" as const,
     items: snapshot?.machines ?? null,
-    reason: snapshot ? null : error,
+    reason: snapshot ? null : errorForDisplay,
     provenance: {
       source: snapshot?.source ?? "Velvet Fleet Console",
       verifiedAt: snapshot?.fetchedAt,

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getFleetMachines } from "./fleet-api";
+import { displayableFleetSnapshot, getFleetMachines } from "./fleet-api";
 
 const NOW = "2026-10-15T08:00:00.000Z";
 const machine = (props: Record<string, unknown> = {}) => ({
@@ -151,6 +151,19 @@ describe("portal Fleet reader", () => {
       expect(result.transport).toBe("signed_snapshot");
       expect(result.validUntil).toBe(validUntil);
       expect(result.machines[0].status).toBe("online");
+    });
+
+    it("drops a signed copy exactly at its deadline without a second fetch", async () => {
+      const validUntil = later();
+      stubFleet(snapshot([machine()], { transport: "signed_snapshot", validUntil }));
+      const result = await getFleetMachines();
+      const deadline = Date.parse(validUntil);
+      expect(displayableFleetSnapshot(result, deadline - 1)).toBe(result);
+      expect(displayableFleetSnapshot(result, deadline)).toBeNull();
+      expect(displayableFleetSnapshot(result, deadline + 30_000)).toBeNull();
+      // Local viewer mode has no signed-envelope TTL and keeps its existing contract.
+      expect(displayableFleetSnapshot({ ...result, transport: undefined, validUntil: undefined }, deadline + 30_000))
+        .not.toBeNull();
     });
 
     it("refuses an expired signed copy instead of showing it as current", async () => {
