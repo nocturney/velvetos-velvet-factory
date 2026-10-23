@@ -14,6 +14,7 @@ const IS_WIN = process.platform === "win32";
 const SCRIPT = fileURLToPath(new URL("./iap-guard-canary.sh", import.meta.url));
 const IMAGE = "gcr.io/instamcp/velvetos-control-center@sha256:" + "a".repeat(64);
 const AUD = "/projects/123456789012/locations/me-west1/services/velvetos-control-center-staging";
+const OWNER = "owner@example.test";
 
 // Converts a Windows drive path (C:\Users\me or C:/Users/me) to Git Bash form (/c/Users/me).
 // POSIX paths pass through unchanged.
@@ -110,10 +111,10 @@ test("plan and deploy are dry-run by default and never call gcloud", () => {
 });
 
 test("apply requires explicit confirmation and only ever deploys with --no-traffic", () => {
-  const noConfirm = run(["deploy", "--image", IMAGE, "--audience", AUD, "--apply"]);
+  const noConfirm = run(["deploy", "--image", IMAGE, "--audience", AUD, "--allowed-emails", OWNER, "--apply"]);
   assert.notEqual(noConfirm.status, 0);
   assert.deepEqual(noConfirm.calls, []);
-  const applied = run(["deploy", "--image", IMAGE, "--audience", AUD, "--apply"], { CANARY_CONFIRM: "deploy-no-traffic" });
+  const applied = run(["deploy", "--image", IMAGE, "--audience", AUD, "--allowed-emails", OWNER, "--apply"], { CANARY_CONFIRM: "deploy-no-traffic" });
   assert.equal(applied.status, 0, applied.out);
   const deploys = applied.calls.filter((c) => c.startsWith("run deploy"));
   assert.equal(deploys.length, 1);
@@ -136,7 +137,10 @@ test("inputs are strict: digest-pinned image, exact audience, valid emails and t
     ["--image", IMAGE, "--audience", "/projects/123/locations/me-west1/services/other-service"],
     ["--image", IMAGE, "--audience", "/projects/123/global/backendServices/9"],
     ["--image", IMAGE],
+    ["--image", IMAGE, "--audience", AUD], // no owner is unsafe even at 0% traffic
     ["--image", IMAGE, "--audience", AUD, "--allowed-emails", "not-an-email"],
+    ["--image", IMAGE, "--audience", AUD, "--allowed-emails", "owner@example.test,"],
+    ["--image", IMAGE, "--audience", AUD, "--allowed-emails", ",owner@example.test"],
     ["--image", IMAGE, "--audience", AUD, "--tag", "latest"],
     ["--image", IMAGE, "--audience", AUD, "--region", "me-west1;rm"],
   ];

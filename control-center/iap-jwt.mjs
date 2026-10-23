@@ -181,7 +181,10 @@ export function createIapGuard(env = process.env, options = {}) {
   const audience = env.VELVETOS_IAP_AUDIENCE || "";
   if (!ALLOWED_AUDIENCE.test(audience)) throw new Error("missing_or_invalid_iap_audience");
   const configured = env.VELVETOS_IAP_ALLOWED_EMAILS || "";
-  const allowedEmails = configured ? configured.split(",").map((e) => e.trim().toLowerCase()) : [];
+  // Owner-only Portal: a valid IAP signature and audience alone must not grant
+  // access to every principal permitted by a broader upstream IAP policy.
+  if (!configured.trim()) throw new Error("missing_iap_owner_email_allowlist");
+  const allowedEmails = configured.split(",").map((e) => e.trim().toLowerCase());
   if (allowedEmails.some((e) => !/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(e)))
     throw new Error("invalid_iap_email_allowlist");
   const jwks = createIapJwksCache(options);

@@ -65,7 +65,16 @@ test("IAP configuration and JWKS failures always fail closed", async () => {
     VELVETOS_IAP_AUDIENCE: "https://untrusted.example/" }), /iap_audience/);
   assert.throws(() => createIapGuard({ VELVETOS_REQUIRE_IAP: "1",
     VELVETOS_IAP_AUDIENCE: audience, VELVETOS_IAP_ALLOWED_EMAILS: "garbage" }), /invalid_iap_email/);
-  const env = { VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience };
+  for (const missing of [undefined, "", " ", "\t"]) {
+    assert.throws(() => createIapGuard({ VELVETOS_REQUIRE_IAP: "1",
+      VELVETOS_IAP_AUDIENCE: audience, VELVETOS_IAP_ALLOWED_EMAILS: missing }),
+      /missing_iap_owner_email_allowlist/, "enabled IAP without owner allowlist must refuse");
+  }
+  assert.throws(() => createIapGuard({ VELVETOS_REQUIRE_IAP: "1",
+    VELVETOS_IAP_AUDIENCE: audience, VELVETOS_IAP_ALLOWED_EMAILS: "owner@example.test," }),
+    /invalid_iap_email_allowlist/, "empty allowlist entry must refuse");
+  const env = { VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience,
+    VELVETOS_IAP_ALLOWED_EMAILS: "owner@example.test" };
   const unavailable = createIapGuard(env, { fetchImpl: async () => { throw Error("offline"); } });
   assert.equal(await unavailable.verify({ "x-goog-iap-jwt-assertion": jwt() }), false);
   const malformed = createIapGuard(env, { fetchImpl: async () => new Response("x", {
@@ -98,6 +107,7 @@ test("enabled IAP denies every HTTP route before upstream credentials or static 
     env: {
       PATH: process.env.PATH || "", HOST: "127.0.0.1", PORT: String(port),
       VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience,
+      VELVETOS_IAP_ALLOWED_EMAILS: "owner@example.test",
       VELVETOS_CONTROL_API_URL: "http://127.0.0.1:" + upstream.address().port,
       VELVETOS_CONTROL_API_TOKEN: "synthetic-not-a-secret",
       VELVETOS_USE_GCP_IDENTITY: "0",
@@ -137,6 +147,14 @@ test("IAP enabled without audience refuses to start a listener", () => {
       HOST: "127.0.0.1", PORT: "0" }, encoding: "utf8", timeout: 3000,
   });
   assert.notEqual(child.status, 0, "misconfigured IAP guard started");
+  const noOwner = spawnSync(process.execPath, ["server.mjs"], {
+    cwd: new URL("..", import.meta.url),
+    env: { PATH: process.env.PATH || "", VELVETOS_REQUIRE_IAP: "1",
+      VELVETOS_IAP_AUDIENCE: audience, HOST: "127.0.0.1", PORT: "0" },
+    encoding: "utf8", timeout: 3000,
+  });
+  assert.notEqual(noOwner.status, 0, "enabled IAP without owner allowlist started a listener");
+  assert.equal(noOwner.stdout.includes("listening"), false);
   console.log("IAP_GUARD_PASS_missing_audience_prevented_listener");
 });
 
@@ -265,6 +283,7 @@ test("liveness is exempt only as exact GET /liveness with a constant body; /heal
   await once(upstream, "listening");
   const portal = await startPortal({
     VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience,
+    VELVETOS_IAP_ALLOWED_EMAILS: "owner@example.test",
     VELVETOS_CONTROL_API_URL: "http://127.0.0.1:" + upstream.address().port,
     VELVETOS_CONTROL_API_TOKEN: "synthetic-not-a-secret",
   });

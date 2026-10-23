@@ -24,7 +24,7 @@
 #   --tag TAG           (default iapcanary)
 #   --image REF         image pinned by digest, e.g. gcr.io/instamcp/velvetos-control-center@sha256:<64 hex>
 #   --audience AUD      exact IAP audience: /projects/<NUMBER>/locations/<REGION>/services/<SERVICE>
-#   --allowed-emails L  optional comma-separated allowlist (lowercase emails)
+#   --allowed-emails L  required nonempty owner allowlist (lowercase emails)
 #   --tag-url URL       optional explicit tag URL for verify (otherwise read from gcloud)
 #   --apply             actually run (deploy/rollback only)
 set -euo pipefail
@@ -76,11 +76,11 @@ check_inputs() {
   [[ "$IMAGE" =~ $IMG_RE ]] || die "--image must be pinned by @sha256 digest"
   [[ -n "$AUDIENCE" ]] || die "--audience is required (observed or read from preflight, never invented)"
   [[ "$AUDIENCE" =~ $AUD_RE ]] || die "--audience must be /projects/<NUMBER>/locations/${REGION}/services/${SERVICE}"
-  if [[ -n "$ALLOWED_EMAILS" ]]; then
-    local e
-    IFS=',' read -r -a _emails <<< "$ALLOWED_EMAILS"
-    for e in "${_emails[@]}"; do [[ "$e" =~ $EMAIL_RE ]] || die "invalid email in --allowed-emails"; done
-  fi
+  [[ -n "$ALLOWED_EMAILS" ]] || die "--allowed-emails is required for owner-only IAP"
+  [[ "$ALLOWED_EMAILS" != ","* && "$ALLOWED_EMAILS" != *"," && "$ALLOWED_EMAILS" != *",,"* ]] || die "empty email in --allowed-emails"
+  local e
+  IFS=',' read -r -a _emails <<< "$ALLOWED_EMAILS"
+  for e in "${_emails[@]}"; do [[ "$e" =~ $EMAIL_RE ]] || die "invalid email in --allowed-emails"; done
 }
 
 need_gcloud() { command -v gcloud >/dev/null 2>&1 || die "gcloud not found"; }
@@ -89,7 +89,7 @@ GC=(--project "$PROJECT" --region "$REGION")
 
 deploy_cmd() {
   local env="^;^VELVETOS_REQUIRE_IAP=1;VELVETOS_IAP_AUDIENCE=${AUDIENCE}"
-  [[ -z "$ALLOWED_EMAILS" ]] || env="${env};VELVETOS_IAP_ALLOWED_EMAILS=${ALLOWED_EMAILS}"
+  env="${env};VELVETOS_IAP_ALLOWED_EMAILS=${ALLOWED_EMAILS}"
   DEPLOY=(gcloud run deploy "$SERVICE" "${GC[@]}"
     --image "$IMAGE"
     --no-traffic
@@ -228,7 +228,7 @@ cmd_plan() {
 # Prerequisites: #62 merged (/liveness + enablement safety) and CI green on that main SHA;
 #   image built from that SHA and referenced by digest; audience confirmed (preflight + console).
 # 1. Read-only facts:   $0 preflight
-# 2. Dry-run deploy:    $0 deploy --image <REF@sha256:...> --audience /projects/<NUMBER>/locations/${REGION}/services/${SERVICE}
+# 2. Dry-run deploy:    $0 deploy --image <REF@sha256:...> --audience /projects/<NUMBER>/locations/${REGION}/services/${SERVICE} --allowed-emails <verified-owner-email>
 # 3. Apply (0% only):   CANARY_CONFIRM=deploy-no-traffic $0 deploy ... --apply
 # 4. Verify:            $0 verify     (anonymous denial + revision Ready + owner Safari steps)
 # 5. Rollback:          CANARY_CONFIRM=remove-tag $0 rollback --apply
