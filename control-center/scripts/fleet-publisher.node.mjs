@@ -355,3 +355,60 @@ test("publisher rejects a readback that arrives after snapshot expiration",async
     console.log("FLEET_PUBLISHER_PASS readback_expiry_pending_fail_closed");
   });
 });
+
+function hangingCancelResponse(size) {
+  let cancellationCalled = false;
+  const body = new ReadableStream({
+    start(controller) { controller.enqueue(new Uint8Array(size)); },
+    cancel() {
+      cancellationCalled = true;
+      return new Promise(() => {});
+    },
+  });
+  return {
+    response: new Response(body, {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+    cancellationCalled: () => cancellationCalled,
+  };
+}
+
+async function boundedOutcome(promise, timeoutMs = 1000) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise.then(() => "unexpected_success", error => error.message),
+      new Promise(resolve => {
+        timer = setTimeout(() => resolve("hung_on_cancel"), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+test("oversized local viewer stream denies without awaiting hung cancellation", async () => {
+  const oversized = hangingCancelResponse(2 * 1024 * 1024 + 1);
+  const fetchImpl = async url => url.endsWith("/settings")
+    ? new Response(JSON.stringify({accessRole: "viewer"}), {
+      headers: {"content-type": "application/json"},
+    }) : oversized.response;
+  const outcome = await boundedOutcome(readCanonicalFleetViewer({
+    viewerToken: viewer, fetchImpl,
+  }));
+  assert.equal(oversized.cancellationCalled(), true);
+  assert.equal(outcome, "canonical_fleet_response_oversized");
+});
+
+test("oversized GCS generation response denies without awaiting hung cancellation", async () => {
+  const oversized = hangingCancelResponse(4097);
+  const transport = makeGcsPublisherTransport({
+    bucket: identity.bucket, objectName: identity.objectName,
+    getAccessToken: async () => "SYNTHETIC_ACCESS_TOKEN_FOR_GCS",
+    fetchImpl: async () => oversized.response,
+  });
+  const outcome = await boundedOutcome(transport.inspect());
+  assert.equal(oversized.cancellationCalled(), true);
+  assert.equal(outcome, "gcs_response_too_large");
+});

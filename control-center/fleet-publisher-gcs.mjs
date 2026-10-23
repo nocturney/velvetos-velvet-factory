@@ -31,7 +31,10 @@ async function readSmallJson(response, max, withDigest = false) {
       if (done) break;
       size += value.byteLength;
       if (size > max) {
-        await reader.cancel("oversized");
+        // The oversize denial must not wait for an uncooperative stream's cancel().
+        // Initiate teardown, but preserve the bounded failure even if it never settles.
+        try { void Promise.resolve(reader.cancel("oversized")).catch(() => {}); }
+        catch { /* best-effort cancellation may throw synchronously */ }
         throw new Error("gcs_response_too_large");
       }
       chunks.push(Buffer.from(value));
