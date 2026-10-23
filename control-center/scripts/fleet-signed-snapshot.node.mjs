@@ -261,11 +261,12 @@ test("oversized GCS stream fails promptly even if peer cancel never settles", as
   };
   const read = makeSignedFleetSource(env, { fetchImpl });
   const result = await Promise.race([
-    read().then(() => "ACCEPTED", () => "REJECTED"),
+    read().then(() => "ACCEPTED", error =>
+      error?.message === "fleet_source_oversized" ? "REJECTED_OVERSIZED" : "REJECTED_OTHER"),
     new Promise(resolve => setTimeout(() => resolve("HUNG"), 500)),
   ]);
   assert.equal(cancelCalls, 1, "oversized stream was not cancelled");
-  assert.equal(result, "REJECTED", "oversize denial hung on an uncooperative stream cancellation");
+  assert.equal(result, "REJECTED_OVERSIZED", "oversize denial hung or rejected for the wrong reason");
 });
 
 test("fixture adapter runs only under explicit temp/loopback test-only gates", () => {
