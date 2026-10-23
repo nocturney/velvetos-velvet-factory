@@ -24,9 +24,9 @@ async function freePort() {
   await once(s, "listening"); const port = s.address().port; s.close();
   await once(s, "close"); return port;
 }
-async function portal(override = {}) {
+async function portal(override = {}, nodeArgs = []) {
   const port = await freePort();
-  const child = spawn(process.execPath, ["server.mjs"], {
+  const child = spawn(process.execPath, [...nodeArgs, "server.mjs"], {
     cwd: project, stdio: "ignore",
     env: { ...process.env, PORT: String(port), HOST: "127.0.0.1",
       VELVETOS_CONTROL_API_URL: "", VELVETOS_CONTROL_API_TOKEN: "",
@@ -165,6 +165,30 @@ test("local Fleet gateway rejects wrong content type and aborts oversized chunke
     assert(overflowChunksSent < 220,
       "gateway buffered an entire >7 MiB chunked response before rejecting it");
   } finally { mode = "good"; }
+});
+
+test("Fleet oversized local stream denies even when cancel never settles", async () => {
+  // Preload in the child only: inject a hostile response at the real server
+  // module's fetch boundary. No live Fleet or cloud services are contacted.
+  const preload = [
+    "const nativeFetch = globalThis.fetch;",
+    "globalThis.fetch = async (target, options) => {",
+    "  if (!String(target).endsWith('/api/machines')) return nativeFetch(target, options);",
+    "  if (options?.method !== 'GET') throw new Error('unexpected_upstream_method');",
+    "  return new Response(new ReadableStream({",
+    "    start(controller) { controller.enqueue(new Uint8Array(2 * 1024 * 1024 + 1)); },",
+    "    cancel() { return new Promise(() => {}); },",
+    "  }), { status: 200, headers: { 'content-type': 'application/json' } });",
+    "};",
+  ].join("\n");
+  const base = await portal({}, ["--import", "data:text/javascript," + encodeURIComponent(preload)]);
+  // Before the fix the request hangs until this deadline. The fixed gateway
+  // rejects immediately with a safe 502 and does not wait for cleanup.
+  const response = await fetch(base + "/api/fleet/v1/machines", {
+    signal: AbortSignal.timeout(2000),
+  });
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: "upstream_unavailable" });
 });
 
 test("malformed or ambiguous Fleet data never gives success", async () => {
