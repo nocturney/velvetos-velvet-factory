@@ -239,6 +239,35 @@ test("private GCS reader is a single metadata-token GET of a fixed HTTPS object"
   console.log("FLEET_SIGNED_PASS GCS_metadata_only_GET_https_origin_no_fallback");
 });
 
+test("oversized GCS stream fails promptly even if peer cancel never settles", async () => {
+  let cancelCalls = 0;
+  const env = {
+    VELVETOS_FLEET_SNAPSHOT_MODE: "gcs",
+    VELVETOS_FLEET_SNAPSHOT_PUBLIC_SPKI_B64: publicB64,
+    VELVETOS_FLEET_SNAPSHOT_KEY_ID: signerId,
+    VELVETOS_FLEET_SNAPSHOT_BUCKET: "vf-private-example",
+    VELVETOS_FLEET_SNAPSHOT_OBJECT: "portal/fleet/status.json",
+  };
+  const fetchImpl = async (url) => {
+    if (String(url).startsWith("http://metadata.google.internal/")) {
+      return new Response(JSON.stringify({ access_token: "SYNTHETIC_ACCESS" }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return new Response(new ReadableStream({
+      start(controller) { controller.enqueue(new Uint8Array(1024 * 1024)); },
+      cancel() { cancelCalls++; return new Promise(() => {}); },
+    }), { headers: { "content-type": "application/json" } });
+  };
+  const read = makeSignedFleetSource(env, { fetchImpl });
+  const result = await Promise.race([
+    read().then(() => "ACCEPTED", () => "REJECTED"),
+    new Promise(resolve => setTimeout(() => resolve("HUNG"), 500)),
+  ]);
+  assert.equal(cancelCalls, 1, "oversized stream was not cancelled");
+  assert.equal(result, "REJECTED", "oversize denial hung on an uncooperative stream cancellation");
+});
+
 test("fixture adapter runs only under explicit temp/loopback test-only gates", () => {
   const fixture = path.join(os.tmpdir(), "vf-synthetic-snapshot.json");
   const config = {
