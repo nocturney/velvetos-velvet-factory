@@ -47,6 +47,36 @@ describe("portal Fleet reader", () => {
     for (const secret of ["192.0.2.42", "SECRET", "password", "build"]) expect(json).not.toContain(secret);
   });
 
+  it("preserves hardware memory from the canonical flattened Fleet projection", async () => {
+    // Both /api/fleet/v1/machines paths return these FLAT memory keys after
+    // projectFleetMachines; legacy nested-only test fixtures hid this contract bug.
+    const canonical = machine({ hardware: {
+      cpu: "Example CPU", cpuCores: 8,
+      memoryTotalBytes: 17179869184, memoryFreeBytes: 1024,
+    } });
+    for (const signed of [false, true]) {
+      stubFleet(snapshot([canonical], signed
+        ? { transport: "signed_snapshot", validUntil: new Date(Date.now() + 60_000).toISOString() }
+        : {}));
+      const [row] = (await getFleetMachines()).machines;
+      expect(row.hardware).toEqual({
+        cpu: "Example CPU", cpuCores: 8,
+        memoryTotalBytes: 17179869184, memoryFreeBytes: 1024,
+      });
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not let conflicting nested data override invalid canonical memory counters", async () => {
+    const [row] = await readMachines([machine({ hardware: {
+      cpu: "Example CPU", cpuCores: 8,
+      memoryTotalBytes: null, memoryFreeBytes: -1,
+      memory: { totalBytes: 17179869184, freeBytes: 1024 },
+    } })]);
+    expect(row.hardware.memoryTotalBytes).toBeNull();
+    expect(row.hardware.memoryFreeBytes).toBeNull();
+  });
+
   it("never shows a machine online unless it is live with a current lastSeen", async () => {
     const machines = await readMachines([
       machine({ id: "stale-online", freshness: "stale" }),
