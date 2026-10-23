@@ -38,7 +38,8 @@ async function anonymousGet(url, fetchImpl) {
         loginHost = location.hostname;
     } catch { /* untrusted redirect is not auth proof */ }
   }
-  try { await response.body?.cancel(); } catch { /* irrelevant to gate result */ }
+  // Best-effort and non-blocking: a body whose cancel never settles must not stall the verdict.
+  try { response.body?.cancel().catch(() => {}); } catch { /* irrelevant to gate result */ }
   return { status, loginHost };
 }
 
