@@ -65,10 +65,18 @@ function validFleetProjection(snapshot) {
 
 // Same rule as the browser: "online" is only reported with a live observation.
 // A signed copy may be older than its own status claims, so never invent online.
-function withoutInventedOnline(payload) {
+// Liveness is judged against the envelope's issuedAt, not the reader's clock:
+// lastSeen must be at most 120s before issuance and at most 5s after it.
+const MAX_LAST_SEEN_AGE_MS = 120_000;
+function liveAt(m, issuedAt) {
+  if (m.freshness !== "live" || !m.lastSeen) return false;
+  const age = Date.parse(issuedAt) - Date.parse(m.lastSeen);
+  return age <= MAX_LAST_SEEN_AGE_MS && age >= -MAX_CLOCK_SKEW_MS;
+}
+function withoutInventedOnline(payload, issuedAt) {
   return {
     ...payload,
-    machines: payload.machines.map(m => m.status === "online" && (m.freshness !== "live" || !m.lastSeen)
+    machines: payload.machines.map(m => m.status === "online" && !liveAt(m, issuedAt)
       ? { ...m, status: "unknown" } : m),
   };
 }
@@ -108,7 +116,7 @@ export function verifySignedFleetSnapshot(value, {
     throw new Error("unverified_fleet_signature");
   }
   return {
-    ...withoutInventedOnline(value.payload),
+    ...withoutInventedOnline(value.payload, value.issuedAt),
     transport: "signed_snapshot",
     validUntil: value.expiresAt,
     signatureKeyId: value.keyId,
