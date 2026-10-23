@@ -94,7 +94,7 @@ test("path conversion maps drive paths to Git Bash form and leaves POSIX paths a
 });
 
 test("plan and deploy are dry-run by default and never call gcloud", () => {
-  const plan = run(["plan", "--image", IMAGE, "--audience", AUD]);
+  const plan = run(["plan", "--image", IMAGE, "--audience", AUD, "--allowed-emails", OWNER]);
   assert.equal(plan.status, 0, plan.out);
   assert.deepEqual(plan.calls, []);
   const dry = run(["deploy", "--image", IMAGE, "--audience", AUD, "--allowed-emails", "owner@example.test"]);
