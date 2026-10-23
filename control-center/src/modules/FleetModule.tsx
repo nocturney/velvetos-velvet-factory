@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { displayableFleetSnapshot, getFleetMachines, type FleetMachinesSnapshot } from "../fleet-api";
+import { displayableFleetSnapshot, effectiveFleetNowMs, getFleetMachines, type FleetMachinesSnapshot } from "../fleet-api";
 import type { ModuleProps } from "../types";
 import { ModuleFrame } from "./shared";
 
@@ -14,9 +14,14 @@ function date(value: string | null): string {
   return Number.isNaN(parsed.getTime()) ? "לא ידוע" : parsed.toLocaleString("he-IL");
 }
 
+type ObservedSnapshot = {
+  snapshot: FleetMachinesSnapshot;
+  observedWallMs: number;
+  observedMonotonicMs: number;
+};
+
 export function FleetModule({ definition }: ModuleProps) {
-  const [loadedSnapshot, setSnapshot] = useState<FleetMachinesSnapshot | null>(null);
-  const [, forceExpiryCheck] = useState(0);
+  const [loadedSnapshot, setSnapshot] = useState<ObservedSnapshot | null>(null);
   const [error, setError] = useState("טוען נתונים מ־Fleet...");
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +32,9 @@ export function FleetModule({ definition }: ModuleProps) {
       try {
         const data = await getFleetMachines(controller.signal);
         if (!active) return;
-        setSnapshot(data);
+        setSnapshot({
+          snapshot: data, observedWallMs: Date.now(), observedMonotonicMs: performance.now(),
+        });
         setError("");
       } catch (reason) {
         if (!active) return;
@@ -43,31 +50,49 @@ export function FleetModule({ definition }: ModuleProps) {
     return () => { active = false; controller.abort(); window.clearInterval(timer); };
   }, []);
 
-  // A successful GET is only valid until its signed deadline, not until the
-  // next 30-second poll. Wake React at that exact boundary and on tab resume.
+  // A short-lived signed copy expires on the original timeline even if the
+  // browser clock is adjusted backwards after it was accepted. On expiry,
+  // discard the copy irreversibly rather than allowing clock changes to revive it.
   useEffect(() => {
-    if (loadedSnapshot?.transport !== "signed_snapshot") return;
+    if (loadedSnapshot?.snapshot.transport !== "signed_snapshot") return;
     let expiryTimer: number | undefined;
+    let active = true;
     const checkExpiry = () => {
-      const leftMs = Date.parse(loadedSnapshot.validUntil ?? "") - Date.now();
+      if (!active) return;
+      const effectiveNow = effectiveFleetNowMs(
+        loadedSnapshot.observedWallMs, loadedSnapshot.observedMonotonicMs,
+        Date.now(), performance.now(),
+      );
+      const leftMs = Date.parse(loadedSnapshot.snapshot.validUntil ?? "") - effectiveNow;
       if (Number.isFinite(leftMs) && leftMs > 0) {
         expiryTimer = window.setTimeout(checkExpiry, Math.max(1, Math.min(leftMs, 2_147_000_000)));
       } else {
-        forceExpiryCheck((current) => current + 1);
+        setSnapshot((current) => current === loadedSnapshot ? null : current);
+        setError("עותק Fleet חתום פג תוקף");
       }
     };
-    const onResume = () => forceExpiryCheck((current) => current + 1);
+    const onResume = () => {
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+      checkExpiry();
+    };
     checkExpiry();
     window.addEventListener("focus", onResume);
     document.addEventListener("visibilitychange", onResume);
     return () => {
+      active = false;
       if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
       window.removeEventListener("focus", onResume);
       document.removeEventListener("visibilitychange", onResume);
     };
   }, [loadedSnapshot]);
 
-  const snapshot = displayableFleetSnapshot(loadedSnapshot);
+  const snapshotNow = loadedSnapshot
+    ? effectiveFleetNowMs(
+      loadedSnapshot.observedWallMs, loadedSnapshot.observedMonotonicMs,
+      Date.now(), performance.now(),
+    )
+    : Date.now();
+  const snapshot = displayableFleetSnapshot(loadedSnapshot?.snapshot ?? null, snapshotNow);
   const errorForDisplay = loadedSnapshot && !snapshot ? "עותק Fleet חתום פג תוקף" : error;
 
   const collection = {

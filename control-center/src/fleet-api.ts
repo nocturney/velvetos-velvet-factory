@@ -40,6 +40,25 @@ export function displayableFleetSnapshot(
     ? snapshot : null;
 }
 
+/**
+ * Preserve the expiry boundary of a verified signed copy when the client wall
+ * clock moves backwards. A material rollback, invalid clock, or monotonic
+ * reset invalidates the copy rather than granting additional lifetime.
+ * The browser's wall clock is NOT an authorization or signature verifier.
+ */
+export function effectiveFleetNowMs(
+  observedWallMs: number, observedMonotonicMs: number,
+  currentWallMs: number, currentMonotonicMs: number,
+): number {
+  if (![observedWallMs, observedMonotonicMs, currentWallMs, currentMonotonicMs].every(Number.isFinite) ||
+      currentMonotonicMs < observedMonotonicMs) return Number.POSITIVE_INFINITY;
+  const monotonicWallMs = observedWallMs + currentMonotonicMs - observedMonotonicMs;
+  // An ordinary sub-second clock adjustment cannot lengthen the signed TTL.
+  if (!Number.isFinite(monotonicWallMs) || currentWallMs + 1_000 < monotonicWallMs)
+    return Number.POSITIVE_INFINITY;
+  return Math.max(currentWallMs, monotonicWallMs);
+}
+
 const MAX_FLEET_MACHINES = 300;
 const PLATFORMS = ["windows", "macos", "linux", "unknown"] as const;
 const STATUSES = ["online", "offline", "unknown"] as const;
