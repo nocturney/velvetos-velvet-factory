@@ -84,6 +84,25 @@ test("duplicate JSON keys cannot preserve hidden original bytes in forwarded res
   expect(JSON.parse(result.body).meta).toBe("ok");
 });
 
+// Nests the leaf inside `depth` arrays; the text is built directly so the fixture itself stays shallow.
+function deeplyNestedJson(leaf, depth) {
+  return '{"schema":"velvetos.control.v1","deep":' + "[".repeat(depth) + JSON.stringify(leaf) + "]".repeat(depth) + "}";
+}
+
+test("deeply nested safe JSON within the body limit still succeeds", async () => {
+  const result = await proxyFixture(deeplyNestedJson("safe", 4000));
+  expect(result.status).toBe(200);
+  expect(result.body).toContain('"safe"');
+  expect(result.headers["Content-Length"]).toBe(Buffer.byteLength(result.body));
+});
+
+test("a deeply nested escaped credential is rejected without reflection", async () => {
+  const result = await proxyFixture(deeplyNestedJson(ESCAPE_APP_TOKEN, 4000), { appToken: ESCAPE_APP_TOKEN });
+  expect(result.status).toBe(502);
+  expect(result.body).toBe(JSON.stringify({ error: "control_api_credential_reflection" }));
+  expect(result.body).not.toContain(ESCAPE_APP_TOKEN);
+});
+
 test("canonical non-secret JSON still succeeds with correct length", async () => {
   const payload = { schema: "velvetos.control.v1", collections: { jobs: { state: "unknown", items: null } } };
   const result = await proxyFixture(payload);

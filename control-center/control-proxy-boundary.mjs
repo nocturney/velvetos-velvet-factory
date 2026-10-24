@@ -35,11 +35,21 @@ function validatedOrigin(raw) {
 }
 
 // Walks the logically decoded JSON value so escaped characters cannot hide an exact secret.
+// Iterative so deeply nested (but size-bounded) JSON cannot exhaust the call stack.
 function decodedContains(value, secret) {
-  if (typeof value === "string") return value.includes(secret);
-  if (Array.isArray(value)) return value.some((item) => decodedContains(item, secret));
-  if (value && typeof value === "object") {
-    return Object.entries(value).some(([key, item]) => key.includes(secret) || decodedContains(item, secret));
+  const pending = [value];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (typeof current === "string") {
+      if (current.includes(secret)) return true;
+    } else if (Array.isArray(current)) {
+      for (const item of current) pending.push(item);
+    } else if (current && typeof current === "object") {
+      for (const [key, item] of Object.entries(current)) {
+        if (key.includes(secret)) return true;
+        pending.push(item);
+      }
+    }
   }
   return false;
 }
