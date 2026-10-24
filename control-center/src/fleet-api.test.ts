@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getFleetMachines } from "./fleet-api";
+import { displayableFleetSnapshot, effectiveFleetNowMs, getFleetMachines } from "./fleet-api";
 
 const NOW = "2026-10-15T08:00:00.000Z";
 const machine = (props: Record<string, unknown> = {}) => ({
@@ -181,6 +181,46 @@ describe("portal Fleet reader", () => {
       expect(result.transport).toBe("signed_snapshot");
       expect(result.validUntil).toBe(validUntil);
       expect(result.machines[0].status).toBe("online");
+    });
+
+    it("drops a signed copy exactly at its deadline without a second fetch", async () => {
+      const validUntil = later();
+      stubFleet(snapshot([machine()], { transport: "signed_snapshot", validUntil }));
+      const result = await getFleetMachines();
+      const deadline = Date.parse(validUntil);
+      expect(displayableFleetSnapshot(result, deadline - 1)).toBe(result);
+      expect(displayableFleetSnapshot(result, deadline)).toBeNull();
+      expect(displayableFleetSnapshot(result, deadline + 30_000)).toBeNull();
+      // Local viewer mode has no signed-envelope TTL and keeps its existing contract.
+      expect(displayableFleetSnapshot({ ...result, transport: undefined, validUntil: undefined }, deadline + 30_000))
+        .not.toBeNull();
+    });
+
+    it("never extends a signed TTL after a browser wall-clock rollback", async () => {
+      const wall = Date.parse("2026-10-15T08:00:00.000Z");
+      const monotonic = 40_000;
+      const copy = {
+        schema: "velvetos.portal.fleet-machines.v1" as const,
+        source: "Velvet Fleet Console" as const,
+        fetchedAt: NOW, count: 0, machines: [],
+        transport: "signed_snapshot" as const,
+        validUntil: new Date(wall + 10_000).toISOString(),
+      };
+      const observed = (wallNow: number, monoNow: number) =>
+        displayableFleetSnapshot(copy, effectiveFleetNowMs(wall, monotonic, wallNow, monoNow));
+      expect(observed(wall + 9_000, monotonic + 9_000)).toBe(copy);
+      expect(observed(wall + 10_000, monotonic + 10_000)).toBeNull();
+      // A small clock correction still expires at the original monotonic deadline.
+      expect(observed(wall + 8_500, monotonic + 9_000)).toBe(copy);
+      expect(observed(wall + 8_500, monotonic + 10_000)).toBeNull();
+      // A meaningful rollback fails closed immediately, even before the TTL.
+      expect(observed(wall - 60_000, monotonic + 1_000)).toBeNull();
+      expect(observed(wall + 30_000, monotonic + 1_000)).toBeNull();
+      expect(observed(wall + 1_000, monotonic - 1)).toBeNull();
+      expect(observed(Number.NaN, monotonic + 1_000)).toBeNull();
+      // The unsigned local viewer remains outside the signed expiry contract.
+      expect(displayableFleetSnapshot({ ...copy, transport: undefined, validUntil: undefined },
+        effectiveFleetNowMs(wall, monotonic, wall - 60_000, monotonic + 1_000))).not.toBeNull();
     });
 
     it("refuses an expired signed copy instead of showing it as current", async () => {
