@@ -88,3 +88,29 @@ test("valid bounded JSON still passes unchanged", async () => {
   expect(JSON.parse(result.data.toString("utf8"))).toEqual({ ok: true });
   expect(wasCanceled()).toBe(false);
 });
+
+test("oversized streamed body rejects without awaiting uncooperative cancellation", async () => {
+  let canceled = false;
+  const stream = new ReadableStream({
+    start(controller) {
+      // No Content-Length: the actual byte cap must stop this upstream immediately.
+      controller.enqueue(new Uint8Array(MAX_CONTROL_BODY_BYTES + 1));
+    },
+    cancel() {
+      canceled = true;
+      // A broken upstream never settles cancellation. Denial must not await it.
+      return new Promise(() => {});
+    },
+  });
+  const response = new Response(stream, {
+    status: 200, headers: { "Content-Type": "application/json" },
+  });
+  let timer;
+  const outcome = await Promise.race([
+    proxyFixture(response).then(() => "unexpected_success", e => e.message),
+    new Promise(resolve => { timer = setTimeout(() => resolve("hung_on_cancel"), 400); }),
+  ]);
+  clearTimeout(timer);
+  expect(outcome).toBe("oversized_response");
+  expect(canceled).toBe(true);
+});
