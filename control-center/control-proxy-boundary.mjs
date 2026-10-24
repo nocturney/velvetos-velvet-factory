@@ -104,14 +104,24 @@ export async function proxyControlRequest({ req, res, url, upstream, appToken, i
     return error(502, "invalid_upstream_content_type");
   }
   const body = await boundedBody(response);
-  try { JSON.parse(body.toString("utf8")); }
-  catch { return error(502, "invalid_upstream_json"); }
+  let serialized;
+  try {
+    // Re-encode the parsed JSON so duplicate object keys or JSON escape sequences
+    // cannot preserve credential bytes that were hidden by JSON.parse().
+    serialized = JSON.stringify(JSON.parse(body.toString("utf8")));
+  } catch { return error(502, "invalid_upstream_json"); }
+  // This read-only server-to-server bridge must never reflect either credential
+  // into browser JSON, even if a backend erroneously includes one in a 200 body.
+  // This is an exact-value fence, not a replacement for upstream DTO minimization.
+  if (serialized.includes(appToken) || (idToken && serialized.includes(idToken)))
+    return error(502, "control_api_credential_reflection");
+  const safeBody = Buffer.from(serialized, "utf8");
 
   res.writeHead(200, {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": body.length,
+    "Content-Length": safeBody.length,
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
   });
-  res.end(body);
+  res.end(safeBody);
 }
