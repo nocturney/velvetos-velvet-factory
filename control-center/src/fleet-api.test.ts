@@ -14,6 +14,12 @@ const snapshot = (machines: unknown[] = [machine()], props: Record<string, unkno
   schema: "velvetos.portal.fleet-machines.v1", source: "Velvet Fleet Console",
   fetchedAt: NOW, count: machines.length, machines, ...props,
 });
+// A signed copy is issued at fetchedAt and must expire within the 90s TTL, so its
+// fixtures are built from the live clock rather than the fixed NOW above.
+const signedBody = (lifetimeMs = 60_000, issuedAtMs = Date.now(), machines: unknown[] = [machine()]) => ({
+  ...snapshot(machines, { fetchedAt: new Date(issuedAtMs).toISOString(), transport: "signed_snapshot" }),
+  validUntil: new Date(issuedAtMs + lifetimeMs).toISOString(),
+});
 
 function stubFleet(body: unknown, init: ResponseInit = {}) {
   const fetchMock = vi.fn(async () => new Response(
@@ -55,9 +61,7 @@ describe("portal Fleet reader", () => {
       memoryTotalBytes: 17179869184, memoryFreeBytes: 1024,
     } });
     for (const signed of [false, true]) {
-      stubFleet(snapshot([canonical], signed
-        ? { transport: "signed_snapshot", validUntil: new Date(Date.now() + 60_000).toISOString() }
-        : {}));
+      stubFleet(signed ? signedBody(60_000, Date.now(), [canonical]) : snapshot([canonical]));
       const [row] = (await getFleetMachines()).machines;
       expect(row.hardware).toEqual({
         cpu: "Example CPU", cpuCores: 8,
@@ -172,22 +176,55 @@ describe("portal Fleet reader", () => {
 
   describe("signed snapshot transport", () => {
     const later = () => new Date(Date.now() + 60_000).toISOString();
-    const earlier = () => new Date(Date.now() - 1_000).toISOString();
 
     it("shows a verified signed copy only with its validity window", async () => {
-      const validUntil = later();
-      stubFleet(snapshot([machine()], { transport: "signed_snapshot", validUntil }));
+      const body = signedBody();
+      stubFleet(body);
       const result = await getFleetMachines();
       expect(result.transport).toBe("signed_snapshot");
-      expect(result.validUntil).toBe(validUntil);
+      expect(result.validUntil).toBe(body.validUntil);
       expect(result.machines[0].status).toBe("online");
     });
 
+    it("accepts a valid 60s signed window issued just now", async () => {
+      stubFleet(signedBody(60_000));
+      await expect(getFleetMachines()).resolves.toMatchObject({ transport: "signed_snapshot" });
+    });
+
+    it("rejects a signed copy whose window exceeds the 90s TTL, accepting exactly 90s", async () => {
+      stubFleet(signedBody(90_001));
+      await expect(getFleetMachines()).rejects.toThrow(/Invalid Fleet schema/);
+      vi.unstubAllGlobals();
+
+      stubFleet(signedBody(90_000));
+      await expect(getFleetMachines()).resolves.toMatchObject({ transport: "signed_snapshot" });
+    });
+
+    it("rejects a signed copy issued more than 5s into the future, tolerating 4s of skew", async () => {
+      // 6s rather than 5.001s: the parser's Date.now() runs after the fixture's, so a
+      // razor-thin margin would make the boundary depend on test timing.
+      stubFleet(signedBody(60_000, Date.now() + 6_000));
+      await expect(getFleetMachines()).rejects.toThrow(/Invalid Fleet schema/);
+      vi.unstubAllGlobals();
+
+      stubFleet(signedBody(60_000, Date.now() + 4_000));
+      await expect(getFleetMachines()).resolves.toMatchObject({ transport: "signed_snapshot" });
+    });
+
+    it("rejects a zero or backwards signed window even when validUntil is still in the future", async () => {
+      stubFleet(signedBody(0, Date.now() + 2_000));
+      await expect(getFleetMachines()).rejects.toThrow(/Invalid Fleet schema/);
+      vi.unstubAllGlobals();
+
+      stubFleet(signedBody(-1_000, Date.now() + 2_000));
+      await expect(getFleetMachines()).rejects.toThrow(/Invalid Fleet schema/);
+    });
+
     it("drops a signed copy exactly at its deadline without a second fetch", async () => {
-      const validUntil = later();
-      stubFleet(snapshot([machine()], { transport: "signed_snapshot", validUntil }));
+      const body = signedBody();
+      stubFleet(body);
       const result = await getFleetMachines();
-      const deadline = Date.parse(validUntil);
+      const deadline = Date.parse(body.validUntil);
       expect(displayableFleetSnapshot(result, deadline - 1)).toBe(result);
       expect(displayableFleetSnapshot(result, deadline)).toBeNull();
       expect(displayableFleetSnapshot(result, deadline + 30_000)).toBeNull();
@@ -197,12 +234,12 @@ describe("portal Fleet reader", () => {
     });
 
     it("never extends a signed TTL after a browser wall-clock rollback", async () => {
-      const wall = Date.parse("2026-10-15T08:00:00.000Z");
+      const wall = Date.now();
       const monotonic = 40_000;
       const copy = {
         schema: "velvetos.portal.fleet-machines.v1" as const,
         source: "Velvet Fleet Console" as const,
-        fetchedAt: NOW, count: 0, machines: [],
+        fetchedAt: new Date(wall).toISOString(), count: 0, machines: [],
         transport: "signed_snapshot" as const,
         validUntil: new Date(wall + 10_000).toISOString(),
       };
@@ -224,7 +261,7 @@ describe("portal Fleet reader", () => {
     });
 
     it("refuses an expired signed copy instead of showing it as current", async () => {
-      stubFleet(snapshot([machine()], { transport: "signed_snapshot", validUntil: earlier() }));
+      stubFleet(signedBody(60_000, Date.now() - 61_000));
       await expect(getFleetMachines()).rejects.toThrow("Fleet snapshot expired");
     });
 
@@ -242,11 +279,11 @@ describe("portal Fleet reader", () => {
     });
 
     it("still rejects a signed copy with a duplicate or unsafe machine", async () => {
-      stubFleet(snapshot([machine(), machine()], { transport: "signed_snapshot", validUntil: later() }));
+      stubFleet(signedBody(60_000, Date.now(), [machine(), machine()]));
       await expect(getFleetMachines()).rejects.toThrow(/Duplicate Fleet machine/);
       vi.unstubAllGlobals();
 
-      stubFleet(snapshot([machine({ id: "" })], { transport: "signed_snapshot", validUntil: later() }));
+      stubFleet(signedBody(60_000, Date.now(), [machine({ id: "" })]));
       await expect(getFleetMachines()).rejects.toThrow(/Invalid Fleet machine identity/);
     });
   });
