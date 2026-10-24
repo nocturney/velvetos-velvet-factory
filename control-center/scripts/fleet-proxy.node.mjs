@@ -13,7 +13,7 @@ const testToken = "LOCAL_TEST_VIEWER_ONLY";
 const machine = (props = {}) => ({
   id: "test-windows", name: "Test Windows", status: "online", freshness: "live",
   platform: "windows", collectedAt: "2026-10-14T18:00:00Z",
-  lastSeen: "2026-10-14T18:01:00Z", os: { name: "Windows", version: "11", hidden: "SECRET" },
+  lastSeen: new Date().toISOString(), os: { name: "Windows", version: "11", hidden: "SECRET" },
   hardware: { cpu: "Example CPU", memory: { totalBytes: 17179869184, freeBytes: 123 },
     password: "SHOULD_NOT_LEAK" },
   network: { ip: "192.0.2.42" }, ...props,
@@ -52,6 +52,14 @@ before(async () => {
       res.writeHead(403).end("forbidden"); return;
     }
     if (mode === "badjson") { res.writeHead(200).end("{broken"); return; }
+    if (mode === "stale-online") {
+      // Source claims online and live, but its last observation is 10 minutes old.
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify([machine({
+        id: "stale-online", name: "Stale Online",
+        lastSeen: new Date(Date.now() - 600000).toISOString(),
+      })]));
+      return;
+    }
     if (mode === "wrong-type") {
       res.writeHead(200, { "content-type": "text/html" }).end(JSON.stringify([machine()]));
       return;
@@ -95,6 +103,41 @@ test("verified projection preserves source freshness and strips secrets", () => 
   assert.equal(p.machines[1].hardware.memoryTotalBytes, null);
   for (const item of ["SECRET", "password", "192.0.2.42", "SHOULD_NOT_LEAK"])
     assert.ok(!JSON.stringify(p).includes(item));
+});
+test("online status is kept only for live lastSeen inside the fetchedAt window", () => {
+  const fetchedAt = "2026-10-24T18:00:00.000Z";
+  const at = (ms) => new Date(Date.parse(fetchedAt) + ms).toISOString();
+  const one = (props) => projectFleetMachines([machine(props)], fetchedAt).machines[0];
+  assert.equal(one({ lastSeen: at(-120001) }).status, "unknown", "just over old");
+  assert.equal(one({ lastSeen: at(-120000) }).status, "online", "exactly old boundary");
+  assert.equal(one({ lastSeen: at(5000) }).status, "online", "future +5s boundary");
+  assert.equal(one({ lastSeen: at(5001) }).status, "unknown", "just too future");
+  assert.equal(one({ lastSeen: null }).status, "unknown", "missing lastSeen");
+  assert.equal(one({ lastSeen: undefined }).status, "unknown", "absent lastSeen");
+  assert.equal(one({ lastSeen: "not-a-date" }).status, "unknown", "invalid lastSeen");
+  assert.equal(one({ freshness: "stale", lastSeen: at(-1000) }).status, "unknown",
+    "non-live online claim");
+  assert.equal(one({ freshness: "unknown", lastSeen: at(-1000) }).status, "unknown",
+    "unknown-freshness online claim");
+  assert.equal(projectFleetMachines([machine({ lastSeen: at(-1000) })], "not-a-date")
+    .machines[0].status, "unknown", "invalid fetchedAt anchor");
+
+  const live = one({ lastSeen: at(-1000) });
+  assert.equal(live.status, "online", "legitimate live online");
+  assert.equal(live.freshness, "live");
+  assert.equal(live.lastSeen, at(-1000));
+
+  const downgraded = one({ lastSeen: at(-600000) });
+  assert.equal(downgraded.status, "unknown");
+  assert.equal(downgraded.freshness, "live", "source freshness is preserved");
+  assert.equal(downgraded.lastSeen, at(-600000), "source lastSeen is preserved");
+  assert.equal(downgraded.name, "Test Windows");
+  assert.equal(downgraded.hardware.memoryTotalBytes, 17179869184);
+
+  const staleOffline = one({ status: "offline", freshness: "stale", lastSeen: at(-600000) });
+  assert.equal(staleOffline.status, "offline", "explicit offline is never upgraded or downgraded");
+  assert.equal(staleOffline.freshness, "stale");
+  assert.equal(one({ status: "unknown", lastSeen: at(-1000) }).status, "unknown");
 });
 test("Fleet memory bytes reject fractional and unsafe integers", () => {
   const invalid = [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, Infinity, -Infinity, NaN, "123", null];
@@ -164,6 +207,19 @@ test("local Fleet gateway rejects wrong content type and aborts oversized chunke
     assert.equal((await fetch(base + "/api/fleet/v1/machines")).status, 502);
     assert(overflowChunksSent < 220,
       "gateway buffered an entire >7 MiB chunked response before rejecting it");
+  } finally { mode = "good"; }
+});
+
+test("local gateway never reports a stale online machine as online", async () => {
+  const base = await portal();
+  try {
+    mode = "stale-online";
+    const response = await fetch(base + "/api/fleet/v1/machines");
+    assert.equal(response.status, 200);
+    const p = await response.json();
+    assert.equal(p.machines[0].id, "stale-online");
+    assert.equal(p.machines[0].status, "unknown");
+    assert.equal(p.machines[0].freshness, "live");
   } finally { mode = "good"; }
 });
 
