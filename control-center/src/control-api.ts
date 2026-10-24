@@ -19,9 +19,10 @@ export class ControlApiClient {
     return this.get<ControlSnapshot>("/v1/snapshot", signal);
   }
 
-  async search(query: string): Promise<SearchResult[]> {
+  async search(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
     const payload = await this.get<{ items?: SearchResult[] } | SearchResult[]>(
       `/v1/search?q=${encodeURIComponent(query)}`,
+      signal,
     );
     return Array.isArray(payload) ? payload : payload.items ?? [];
   }
