@@ -14,7 +14,18 @@ const asTimestamp = (value) => {
   return text && !Number.isNaN(Date.parse(text)) ? text : null;
 };
 
-export function projectMachine(machine) {
+// Same conservative window as the signed reader: lastSeen may be at most 120s
+// before, and 5s after, the trusted projection time. Anything else is unknown.
+const ONLINE_MAX_AGE_MS = 120000;
+const ONLINE_MAX_FUTURE_MS = 5000;
+
+const onlineClaimHolds = (freshness, lastSeen, fetchedAt) => {
+  if (freshness !== "live" || !lastSeen || typeof fetchedAt !== "string") return false;
+  const delta = Date.parse(lastSeen) - Date.parse(fetchedAt);
+  return delta >= -ONLINE_MAX_AGE_MS && delta <= ONLINE_MAX_FUTURE_MS;
+};
+
+export function projectMachine(machine, fetchedAt = new Date().toISOString()) {
   if (!machine || typeof machine !== "object" || Array.isArray(machine)) {
     throw new TypeError("invalid_fleet_machine");
   }
@@ -24,10 +35,15 @@ export function projectMachine(machine) {
 
   const platform = ["windows", "macos", "linux"].includes(machine.platform)
     ? machine.platform : "unknown";
-  const status = ["online", "offline", "unknown"].includes(machine.status)
-    ? machine.status : "unknown";
   const freshness = ["live", "stale", "unknown"].includes(machine.freshness)
     ? machine.freshness : "unknown";
+  const lastSeen = asTimestamp(machine.lastSeen);
+  // A contradictory or stale "online" claim is not evidence of live presence.
+  // Downgrade only to unknown: an offline claim is still reported as offline.
+  const claimed = ["online", "offline", "unknown"].includes(machine.status)
+    ? machine.status : "unknown";
+  const status = claimed === "online" && !onlineClaimHolds(freshness, lastSeen, fetchedAt)
+    ? "unknown" : claimed;
 
   const hardware = machine.hardware && typeof machine.hardware === "object"
     ? machine.hardware : {};
@@ -38,7 +54,7 @@ export function projectMachine(machine) {
   return {
     id, name, platform, status, freshness,
     collectedAt: asTimestamp(machine.collectedAt),
-    lastSeen: asTimestamp(machine.lastSeen),
+    lastSeen,
     os: { name: asText(os.name), version: asText(os.version, 90) },
     hardware: {
       cpu: asText(hardware.cpu, 160),
@@ -54,7 +70,7 @@ export function projectFleetMachines(raw, fetchedAt = new Date().toISOString()) 
   if (!Array.isArray(raw) || raw.length > 300) {
     throw new TypeError("invalid_fleet_response");
   }
-  const machines = raw.map(projectMachine);
+  const machines = raw.map((machine) => projectMachine(machine, fetchedAt));
   if (new Set(machines.map((machine) => machine.id)).size !== machines.length) {
     throw new TypeError("duplicate_fleet_machine");
   }
