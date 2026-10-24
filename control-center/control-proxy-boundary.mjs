@@ -62,7 +62,9 @@ async function boundedBody(response) {
       if (done) break;
       size += value.byteLength;
       if (size > MAX_CONTROL_BODY_BYTES) {
-        await reader.cancel("body_limit");
+        // Denial must not await cleanup: a misbehaving upstream may never
+        // settle cancellation, even after the response byte budget is exceeded.
+        void reader.cancel("body_limit").catch(() => {});
         throw new Error("oversized_response");
       }
       chunks.push(Buffer.from(value));
