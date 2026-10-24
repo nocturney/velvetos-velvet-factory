@@ -28,7 +28,7 @@ const signerId = "synthetic_key_1";
 const now = () => Date.now();
 const machine = (id = "windows-synthetic") => ({
   id, name: id, platform: "windows", status: "online", freshness: "live",
-  collectedAt: "2026-10-15T07:00:00.000Z", lastSeen: "2026-10-15T07:00:02.000Z",
+  collectedAt: "2026-10-15T07:00:00.000Z", lastSeen: new Date(now()).toISOString(),
   os: { name: "Test Windows", version: "11", deviceSecret: "REMOVE_ME" },
   hardware: {
     cpu: "Synthetic CPU", cpuCores: 12,
@@ -168,6 +168,29 @@ test("a signed copy never invents online: status needs live freshness and lastSe
     ["live-online", "online", "live"],
   ]);
   console.log("FLEET_SIGNED_PASS no_invented_online");
+});
+
+test("a signed online machine is downgraded when lastSeen is outside the live window of issuedAt", () => {
+  // Correctly signed envelope; only the machine's own lastSeen is out of window.
+  const issuedAt = new Date(now()).toISOString();
+  const at = (ms) => new Date(Date.parse(issuedAt) + ms).toISOString();
+  const data = verify(envelope(21, issuedAt, 60_000, [
+    { ...machine("fresh-online"), lastSeen: at(0) },
+    { ...machine("edge-online"), lastSeen: at(-120_000) },
+    { ...machine("stale-green"), lastSeen: at(-121_000) },
+    { ...machine("skew-online"), lastSeen: at(5_000) },
+    { ...machine("future-green"), lastSeen: at(5_001) },
+    { ...machine("stale-offline"), status: "offline", lastSeen: at(-300_000) },
+  ]));
+  assert.deepEqual(data.machines.map(m => [m.id, m.status]), [
+    ["fresh-online", "online"],
+    ["edge-online", "online"],
+    ["stale-green", "unknown"],
+    ["skew-online", "online"],
+    ["future-green", "unknown"],
+    ["stale-offline", "offline"],
+  ]);
+  console.log("FLEET_SIGNED_PASS stale_lastSeen_never_green");
 });
 
 test("private GCS reader is a single metadata-token GET of a fixed HTTPS object", async () => {

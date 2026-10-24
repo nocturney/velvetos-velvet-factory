@@ -34,6 +34,26 @@ function validatedOrigin(raw) {
   return "";
 }
 
+// Walks the logically decoded JSON value so escaped characters cannot hide an exact secret.
+// Iterative so deeply nested (but size-bounded) JSON cannot exhaust the call stack.
+function decodedContains(value, secret) {
+  const pending = [value];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (typeof current === "string") {
+      if (current.includes(secret)) return true;
+    } else if (Array.isArray(current)) {
+      for (const item of current) pending.push(item);
+    } else if (current && typeof current === "object") {
+      for (const [key, item] of Object.entries(current)) {
+        if (key.includes(secret)) return true;
+        pending.push(item);
+      }
+    }
+  }
+  return false;
+}
+
 function discardUpstreamBody(response, reason) {
   // Never block denial on a potentially stalled or hostile upstream stream.
   if (response.body) void response.body.cancel(reason).catch(() => {});
@@ -62,7 +82,9 @@ async function boundedBody(response) {
       if (done) break;
       size += value.byteLength;
       if (size > MAX_CONTROL_BODY_BYTES) {
-        await reader.cancel("body_limit");
+        // Denial must not await cleanup: a misbehaving upstream may never
+        // settle cancellation, even after the response byte budget is exceeded.
+        void reader.cancel("body_limit").catch(() => {});
         throw new Error("oversized_response");
       }
       chunks.push(Buffer.from(value));
@@ -104,14 +126,29 @@ export async function proxyControlRequest({ req, res, url, upstream, appToken, i
     return error(502, "invalid_upstream_content_type");
   }
   const body = await boundedBody(response);
-  try { JSON.parse(body.toString("utf8")); }
-  catch { return error(502, "invalid_upstream_json"); }
+  let parsed;
+  let serialized;
+  try {
+    // Re-encode the parsed JSON so duplicate object keys or JSON escape sequences
+    // cannot preserve credential bytes that were hidden by JSON.parse().
+    parsed = JSON.parse(body.toString("utf8"));
+    serialized = JSON.stringify(parsed);
+  } catch { return error(502, "invalid_upstream_json"); }
+  // This read-only server-to-server bridge must never reflect either credential
+  // into browser JSON, even if a backend erroneously includes one in a 200 body.
+  // Check both the serialized text and the decoded strings/keys, since JSON escapes
+  // (e.g. \" or \\) hide exact credential bytes from a text-only search.
+  // This is an exact-value fence, not a replacement for upstream DTO minimization.
+  const secrets = [appToken, idToken].filter(Boolean);
+  if (secrets.some((secret) => serialized.includes(secret) || decodedContains(parsed, secret)))
+    return error(502, "control_api_credential_reflection");
+  const safeBody = Buffer.from(serialized, "utf8");
 
   res.writeHead(200, {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": body.length,
+    "Content-Length": safeBody.length,
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
   });
-  res.end(body);
+  res.end(safeBody);
 }

@@ -1,14 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { defineConfig, type ProxyOptions } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { classifyControlRequest } from "./control-proxy-boundary.mjs";
+import { classifyControlRequest, proxyControlRequest } from "./control-proxy-boundary.mjs";
 
 const controlTarget = process.env.VELVETOS_CONTROL_API_URL || "http://127.0.0.1:8080";
 const controlToken = process.env.VELVETOS_CONTROL_API_TOKEN || "";
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
 const CONTROL_PREFIX = "/api/control";
-// Never routable upstream; only reachable if bypass was somehow skipped, and it gets no bearer.
-const DENIED_UPSTREAM_PATH = "/__velvetos_dev_proxy_denied__";
 
 function oneHeader(value: string | string[] | undefined): string | null {
   if (value === undefined) return "";
@@ -66,34 +64,8 @@ function denyDevProxy(req: IncomingMessage): { status: number; error: string } |
   return null;
 }
 
-// Build the upstream path only from the validated route, like server.mjs does.
-// Returns null when the request is not an allowlisted read.
-function validatedUpstreamPath(rawUrl: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(rawUrl || "/", "http://127.0.0.1");
-  } catch {
-    return null;
-  }
-  const route = classifyControlRequest(url);
-  if (!route.ok) return null;
-  if (rawUrl.split("?", 1)[0] !== CONTROL_PREFIX + route.path) return null;
-  return route.path + url.search;
-}
-
-function isAllowlistedUpstreamPath(path: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(CONTROL_PREFIX + path, "http://127.0.0.1");
-  } catch {
-    return false;
-  }
-  const route = classifyControlRequest(url);
-  return route.ok && route.path + url.search === path;
-}
-
-function rejectDevProxy(res: ServerResponse, status: number, error: string): string {
-  const body = JSON.stringify({ error });
+function writeJson(res: ServerResponse, status: number, value: unknown): void {
+  const body = JSON.stringify(value);
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
@@ -101,45 +73,57 @@ function rejectDevProxy(res: ServerResponse, status: number, error: string): str
     "X-Content-Type-Options": "nosniff",
   });
   res.end(body);
-  // Vite proxies unless bypass returns a string and the response is already finished.
-  return "/";
 }
 
-function controlProxy(): ProxyOptions {
-  return {
-    target: controlTarget,
-    changeOrigin: false,
-    rewrite: (path) => validatedUpstreamPath(path) ?? DENIED_UPSTREAM_PATH,
-    bypass(req, res) {
-      const denied = denyDevProxy(req);
-      if (!denied || !res) return;
-      return rejectDevProxy(res, denied.status, denied.error);
-    },
-    configure(proxy) {
-      proxy.on("proxyReq", (proxyReq) => {
-        proxyReq.removeHeader("authorization");
-        proxyReq.removeHeader("x-velvetos-token");
-        // Defense in depth: the bearer goes only to an allowlisted upstream path.
-        if (proxyReq.method !== "GET" || !isAllowlistedUpstreamPath(proxyReq.path)) {
-          proxyReq.destroy(new Error("dev_proxy_denied_upstream_path"));
-          return;
-        }
-        if (controlToken) proxyReq.setHeader("Authorization", `Bearer ${controlToken}`);
+// Same shared boundary as the production server: the upstream body is re-encoded and
+// checked for the server-held token before any byte reaches the browser, and upstream
+// errors are mapped to fixed codes rather than echoed. Registered as middleware so it
+// runs before Vite's own proxy handling; the Vite proxy is intentionally not used.
+function controlMiddleware() {
+  return async (req: IncomingMessage, res: ServerResponse, next: (err?: unknown) => void) => {
+    const path = (req.url || "").split("?", 1)[0];
+    if (path !== CONTROL_PREFIX && !path.startsWith(CONTROL_PREFIX + "/")) return next();
+    const denied = denyDevProxy(req);
+    if (denied) return writeJson(res, denied.status, { error: denied.error });
+    const url = new URL(req.url || "/", "http://127.0.0.1");
+    try {
+      await proxyControlRequest({
+        req,
+        res,
+        url,
+        upstream: controlTarget,
+        appToken: controlToken,
+        identityToken: async () => "",
+        writeJson,
       });
+    } catch {
+      // Network, timeout, oversize and parse failures all collapse to one sanitized code.
+      if (!res.headersSent) writeJson(res, 502, { error: "upstream_unavailable" });
+      else res.destroy();
+    }
+  };
+}
+
+function controlProxyPlugin(): Plugin {
+  return {
+    name: "velvetos-control-proxy",
+    configureServer(server) {
+      server.middlewares.use(controlMiddleware());
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(controlMiddleware());
     },
   };
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), controlProxyPlugin()],
   server: {
     host: "127.0.0.1",
     port: 4173,
-    proxy: { "/api/control": controlProxy() },
   },
   preview: {
     host: "127.0.0.1",
     port: 4173,
-    proxy: { "/api/control": controlProxy() },
   },
 });

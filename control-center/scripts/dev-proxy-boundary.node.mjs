@@ -151,13 +151,17 @@ function rawGet(port, method, target, headers = {}) {
   });
 }
 
-async function withViteProxy(mode, fn) {
+function respondOk(req, res) {
+  const body = JSON.stringify({ schema: "velvetos.control.v1", ok: true });
+  res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(body) });
+  res.end(body);
+}
+
+async function withViteProxy(mode, fn, respond = respondOk) {
   const seen = [];
   const upstream = createServer((req, res) => {
     seen.push({ method: req.method, url: req.url, authorization: req.headers.authorization || "" });
-    const body = JSON.stringify({ schema: "velvetos.control.v1", ok: true });
-    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(body) });
-    res.end(body);
+    respond(req, res);
   });
   upstream.listen(0, "127.0.0.1");
   await once(upstream, "listening");
@@ -248,6 +252,59 @@ for (const mode of ["dev", "preview"]) {
         assert.equal(seen.length, before, `${mode} ${method} was forwarded`);
       }
       assert.equal(seen.length, 2);
+    });
+  });
+}
+
+// Upstream 200 JSON that reflects the server-held canary must never reach the browser.
+// Variants cover plain value, JSON-escaped characters, duplicate keys and a canary-named key.
+const REFLECTIONS = {
+  plain: `{"schema":"velvetos.control.v1","debug":"${CANARY}"}`,
+  escaped: `{"schema":"velvetos.control.v1","debug":"dev-proxy-canary-not-a-\\u0073ecret"}`,
+  duplicateKey: `{"schema":"velvetos.control.v1","debug":"ok","debug":"${CANARY}"}`,
+  keyName: `{"schema":"velvetos.control.v1","${CANARY}":true}`,
+};
+
+for (const mode of ["dev", "preview"]) {
+  for (const [name, raw] of Object.entries(REFLECTIONS)) {
+    test(`${mode}: upstream JSON reflecting the server token (${name}) becomes a sanitized 502`, { timeout: 60_000 }, async () => {
+      await withViteProxy(mode, async ({ port }) => {
+        const response = await fetch(`http://127.0.0.1:${port}/api/control/v1/snapshot`, {
+          headers: { Accept: "application/json" },
+        });
+        const text = await response.text();
+        assert.equal(response.status, 502, `${mode} ${name} status`);
+        assert.deepEqual(JSON.parse(text), { error: "control_api_credential_reflection" }, `${mode} ${name} body`);
+        assert.equal(text.includes(CANARY), false, `${mode} ${name} leaked the token`);
+        assert.equal(response.headers.get("cache-control"), "no-store");
+        assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+      }, (req, res) => {
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(raw);
+      });
+    });
+  }
+
+  test(`${mode}: upstream error and non-JSON bodies that echo the token are never forwarded`, { timeout: 60_000 }, async () => {
+    const replies = [
+      { status: 500, type: "application/json", body: `{"detail":"${CANARY}"}`, expect: [502, "upstream_unavailable"] },
+      { status: 401, type: "application/json", body: `{"detail":"${CANARY}"}`, expect: [401, "control_api_denied"] },
+      { status: 200, type: "text/html", body: `<p>${CANARY}</p>`, expect: [502, "invalid_upstream_content_type"] },
+    ];
+    const queue = [...replies];
+    await withViteProxy(mode, async ({ port }) => {
+      for (const reply of replies) {
+        const response = await fetch(`http://127.0.0.1:${port}/api/control/v1/capabilities`);
+        const text = await response.text();
+        assert.equal(response.status, reply.expect[0], `${mode} ${reply.status} ${reply.type} status`);
+        assert.deepEqual(JSON.parse(text), { error: reply.expect[1] }, `${mode} ${reply.status} body`);
+        assert.equal(text.includes(CANARY), false, `${mode} ${reply.status} leaked the token`);
+        assert.equal(response.headers.get("cache-control"), "no-store");
+      }
+    }, (req, res) => {
+      const reply = queue.shift();
+      res.writeHead(reply.status, { "Content-Type": reply.type });
+      res.end(reply.body);
     });
   });
 }
