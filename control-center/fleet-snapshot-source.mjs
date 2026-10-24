@@ -40,7 +40,9 @@ async function strictJsonResponse(response) {
       if (done) break;
       size += value.byteLength;
       if (size > MAX_ENVELOPE_BYTES) {
-        await r.cancel("oversized");
+        // Start cancellation without awaiting it: a stalled or rejecting upstream
+        // must not hold the fail-closed denial open.
+        void r.cancel("oversized").catch(() => {});
         throw new Error("fleet_source_oversized");
       }
       chunks.push(Buffer.from(value));

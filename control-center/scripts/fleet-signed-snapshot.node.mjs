@@ -455,3 +455,47 @@ test("signed Fleet mode refuses to start unless IAP is enforced", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Oversized GCS body with an uncooperative cancel(): the reader must reject with
+// fleet_source_oversized at once and never await cancellation. Synthetic stream only.
+test("oversized GCS body rejects without awaiting stalled or rejecting cancel", async () => {
+  const outcomes = [];
+  for (const mode of ["never", "reject", "resolve"]) {
+    const stats = { cancels: 0, fetches: 0 };
+    const mocked = async (u) => {
+      if (u === "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token") {
+        return new Response(JSON.stringify({ access_token: "SYNTHETIC_METADATA_ACCESS_TOKEN" }), {
+          status: 200, headers: { "content-type": "application/json" },
+        });
+      }
+      stats.fetches++;
+      return new Response(new ReadableStream({
+        start(controller) { controller.enqueue(new Uint8Array(512 * 1024 + 1)); },
+        cancel() {
+          stats.cancels++;
+          if (mode === "never") return new Promise(() => {});
+          if (mode === "reject") return Promise.reject(new Error("synthetic_cancel_reject"));
+          return Promise.resolve();
+        },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    };
+    const read = makeSignedFleetSource({
+      VELVETOS_FLEET_SNAPSHOT_MODE: "gcs",
+      VELVETOS_FLEET_SNAPSHOT_PUBLIC_SPKI_B64: publicB64,
+      VELVETOS_FLEET_SNAPSHOT_KEY_ID: signerId,
+      VELVETOS_FLEET_SNAPSHOT_BUCKET: "vf-private-example",
+      VELVETOS_FLEET_SNAPSHOT_OBJECT: "portal/fleet/status.json",
+    }, { fetchImpl: mocked });
+    let timer;
+    const outcome = await Promise.race([
+      read().then(value => ({ kind: "ok", value }), error => ({ kind: "error", message: error.message })),
+      new Promise(resolve => { timer = setTimeout(() => resolve({ kind: "hung" }), 500); }),
+    ]);
+    clearTimeout(timer);
+    assert.deepEqual(outcome, { kind: "error", message: "fleet_source_oversized" }, mode);
+    assert.equal(stats.fetches, 1, mode);
+    assert.equal(stats.cancels, 1, mode);
+    outcomes.push(mode);
+  }
+  console.log("FLEET_SIGNED_PASS oversized_gcs_body_fails_closed_without_awaiting_cancel " + outcomes.join(","));
+});
