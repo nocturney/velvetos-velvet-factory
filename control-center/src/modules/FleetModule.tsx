@@ -20,6 +20,9 @@ type ObservedSnapshot = {
   observedMonotonicMs: number;
 };
 
+// A refresh that does not settle in time is treated as unavailable, never as the last green read.
+const FLEET_REQUEST_DEADLINE_MS = 8_000;
+
 export function FleetModule({ definition }: ModuleProps) {
   const [loadedSnapshot, setSnapshot] = useState<ObservedSnapshot | null>(null);
   const [error, setError] = useState("טוען נתונים מ־Fleet...");
@@ -27,27 +30,46 @@ export function FleetModule({ definition }: ModuleProps) {
 
   useEffect(() => {
     let active = true;
-    const controller = new AbortController();
+    let latest = 0;
+    let inFlight: AbortController | undefined;
     const load = async () => {
+      // Only the newest refresh may update rows; an older late result is ignored.
+      const request = ++latest;
+      inFlight?.abort();
+      const controller = new AbortController();
+      inFlight = controller;
+      let timer: number | undefined;
+      // A stalled GET may ignore its AbortSignal, so the deadline must fail closed on its own.
+      const deadline = new Promise<never>((_, reject) => {
+        timer = window.setTimeout(() => {
+          controller.abort();
+          reject(new Error("תם הזמן לקבלת נתוני Fleet"));
+        }, FLEET_REQUEST_DEADLINE_MS);
+      });
       try {
-        const data = await getFleetMachines(controller.signal);
-        if (!active) return;
+        const data = await Promise.race([getFleetMachines(controller.signal), deadline]);
+        if (!active || request !== latest) return;
         setSnapshot({
           snapshot: data, observedWallMs: Date.now(), observedMonotonicMs: performance.now(),
         });
         setError("");
       } catch (reason) {
-        if (!active) return;
-        // Never retain a prior read as apparently current after a failed refresh.
+        if (!active || request !== latest) return;
+        // Never retain a prior read as apparently current after a failed or timed-out refresh.
         setSnapshot(null);
         setError(reason instanceof Error ? reason.message : "מקור Fleet לא זמין");
       } finally {
-        if (active) setLoading(false);
+        window.clearTimeout(timer);
+        if (active && request === latest) setLoading(false);
       }
     };
     void load();
-    const timer = window.setInterval(() => void load(), 30_000);
-    return () => { active = false; controller.abort(); window.clearInterval(timer); };
+    const pollTimer = window.setInterval(() => void load(), 30_000);
+    return () => {
+      active = false;
+      inFlight?.abort();
+      window.clearInterval(pollTimer);
+    };
   }, []);
 
   // A short-lived signed copy expires on the original timeline even if the
