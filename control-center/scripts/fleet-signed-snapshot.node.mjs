@@ -308,6 +308,7 @@ function iapJwt(payload = {}, privateKey = iapKeys.privateKey) {
   const header = Buffer.from(JSON.stringify({ alg: "ES256", kid: "synthetic-iap" })).toString("base64url");
   const body = Buffer.from(JSON.stringify({
     iss: "https://cloud.google.com/iap", aud: iapAudience, sub: "synthetic-subject",
+    email: "owner@example.test",
     iat: now2, exp: now2 + 300, ...payload,
   })).toString("base64url");
   const data = header + "." + body;
@@ -350,7 +351,8 @@ function bootPortal({ fixture, iap = true, dir, extra = {} }) {
     VELVETOS_CONTROL_API_URL: "", VELVETOS_CONTROL_API_TOKEN: "",
     ...extra,
   };
-  if (iap) { env.VELVETOS_REQUIRE_IAP = "1"; env.VELVETOS_IAP_AUDIENCE = iapAudience; }
+  if (iap) { env.VELVETOS_REQUIRE_IAP = "1"; env.VELVETOS_IAP_AUDIENCE = iapAudience;
+    env.VELVETOS_IAP_ALLOWED_EMAILS = "owner@example.test"; }
   return { env, stub: writeIapStub(dir) };
 }
 async function startPortal(config) {

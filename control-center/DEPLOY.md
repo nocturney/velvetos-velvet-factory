@@ -79,7 +79,7 @@ an authorized IAP assertion for the intended service:
 ```text
 VELVETOS_REQUIRE_IAP=1
 VELVETOS_IAP_AUDIENCE=/projects/PROJECT_NUMBER/locations/REGION/services/SERVICE_NAME
-# Optional strict allowlist when that signed claim is present:
+# Required owner identity allowlist; do not enable a canary without it:
 VELVETOS_IAP_ALLOWED_EMAILS=verified-owner@example.com
 ```
 
@@ -93,7 +93,8 @@ allowlist prevents the server from starting.
 With the guard enabled, **every route** (`/`, assets, `/health`, `/api/*`) first
 requires `x-goog-iap-jwt-assertion` with Google's `ES256` signature and key ID,
 issuer `https://cloud.google.com/iap`, exact audience, nonexpired claims and
-(optional) exact allowlisted email. No assertion or a key-network failure yields
+**required** exact allowlisted owner email. An enabled guard without a nonempty
+email allowlist refuses startup rather than accepting any other valid IAP principal. No assertion or a key-network failure yields
 `401` **before** any credentialed upstream requests or static content. Google's
 public JWKS is fetched only from the pinned
 `https://www.gstatic.com/iap/verify/public_key-jwk` URL with bounded payload,
@@ -126,7 +127,8 @@ a separately reviewed rollout. Never deploy with `--allow-unauthenticated`.
     `VELVETOS_IAP_AUDIENCE` and no `VELVETOS_IAP_ALLOWED_EMAILS` is set. With either
     present the intent to enable is clear, so the server **refuses to start**
     rather than run unguarded.
-  - `1`: enabled. A missing or invalid audience or allowlist refuses to start.
+  - `1`: enabled. A missing or invalid audience, or an absent, empty or malformed
+    `VELVETOS_IAP_ALLOWED_EMAILS`, refuses to start.
   - any other value (`true`, `yes`, `" "`, `01`): refuses to start.
 
   On Cloud Run a refused start leaves the new revision not-ready, so traffic stays on
@@ -161,9 +163,9 @@ Prerequisites:
 
 ```sh
 scripts/iap-guard-canary.sh preflight                       # read-only facts, env names only
-scripts/iap-guard-canary.sh deploy --image REF@sha256:... --audience /projects/N/locations/me-west1/services/velvetos-control-center-staging
+scripts/iap-guard-canary.sh deploy --image REF@sha256:... --audience /projects/N/locations/me-west1/services/velvetos-control-center-staging --allowed-emails verified-owner@example.com
 CANARY_CONFIRM=deploy-no-traffic scripts/iap-guard-canary.sh deploy ... --apply
-scripts/iap-guard-canary.sh verify                          # anonymous denial + revision Ready + owner steps
+scripts/iap-guard-canary.sh verify --audience /projects/N/locations/me-west1/services/velvetos-control-center-staging --allowed-emails verified-owner@example.com   # IAP annotation + canary revision guard + 0% traffic + anonymous denial + owner steps
 CANARY_CONFIRM=remove-tag scripts/iap-guard-canary.sh rollback --apply
 ```
 

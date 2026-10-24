@@ -15,6 +15,7 @@ function jwt() {
   const data = [
     { alg: "ES256", kid: "fixture" },
     { iss: "https://cloud.google.com/iap", aud: audience, sub: "fixture:owner",
+      email: "owner@example.test",
       iat: now - 10, exp: now + 300 },
   ].map(x => Buffer.from(JSON.stringify(x)).toString("base64url")).join(".");
   return data + "." + sign("sha256", Buffer.from(data),
@@ -42,14 +43,16 @@ async function bounded(promise) {
 }
 
 test("valid synthetic ES256 proof still verifies", async () => {
-  const guard = createIapGuard({ VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience },
+  const guard = createIapGuard({ VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience,
+    VELVETOS_IAP_ALLOWED_EMAILS: "owner@example.test" },
     { fetchImpl: async () => good() });
   assert.equal(await guard.verify({ "x-goog-iap-jwt-assertion": jwt() }), true);
 });
 test("oversized JWKS rejects concurrent assertions even when cancel stalls or rejects", async () => {
   for (const mode of ["never", "reject", "resolve"]) {
     const stats = { cancels: 0, fetches: 0 };
-    const guard = createIapGuard({ VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience },
+    const guard = createIapGuard({ VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: audience,
+    VELVETOS_IAP_ALLOWED_EMAILS: "owner@example.test" },
       { fetchImpl: async () => { stats.fetches++; return oversized(mode, stats); } });
     const token = jwt();
     const outcomes = await Promise.all([0, 1].map(() =>
