@@ -151,6 +151,109 @@ try {
   } finally {
     await rollbackPage.close();
   }
+
+  // A refresh that never settles must not keep a green Fleet row. The init script
+  // removes only the client abort for this Fleet GET, so each held route can still
+  // deliver a late body. The test releases it deterministically and waits for the
+  // component's json() to finish before asserting that the late body is ignored.
+  const hangPage = await browser.newPage();
+  await hangPage.clock.install();
+  await hangPage.addInitScript(() => {
+    const nativeFetch = window.fetch.bind(window);
+    window.__fleetJsonDone = 0;
+    window.__fleetJsonWaiters = [];
+    window.fetch = (input, init) => {
+      if (!String(input).includes("/api/fleet/v1/machines")) return nativeFetch(input, init);
+      return nativeFetch(input, { ...init, signal: undefined }).then((response) => {
+        const readJson = response.json.bind(response);
+        response.json = () => readJson().then((value) => {
+          window.__fleetJsonDone++;
+          window.__fleetJsonWaiters.splice(0).forEach((resolve) => resolve());
+          return value;
+        });
+        return response;
+      });
+    };
+  });
+  const hangErrors = [];
+  hangPage.on("pageerror", (e) => hangErrors.push(e.message));
+  const fleetPayload = (name) => ({
+    schema: "velvetos.portal.fleet-machines.v1", source: "Velvet Fleet Console",
+    fetchedAt: new Date().toISOString(), count: 1, machines: [{
+      id: name.toLowerCase().replace(/\s+/g, "-"), name, platform: "macos",
+      status: "online", freshness: "live",
+      collectedAt: new Date().toISOString(), lastSeen: new Date().toISOString(),
+      os: { name: "macOS", version: "fixture" },
+      hardware: { cpu: "Fixture CPU", cpuCores: 4, memoryTotalBytes: 1024, memoryFreeBytes: 512 },
+    }],
+  });
+  let hangCalls = 0;
+  const held = [];
+  await hangPage.route("**/api/fleet/v1/machines", (route) => {
+    hangCalls++;
+    // Reads 1 and 3 settle immediately; reads 2 and 4 are held until the test releases them.
+    if (hangCalls % 2 === 1) {
+      return route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify(fleetPayload(hangCalls === 1 ? "Local Probe" : "Recovered Probe")),
+      });
+    }
+    held.push(route);
+  });
+  const waitForHeld = async (count) => {
+    for (let i = 0; i < 1000 && held.length < count; i++) await new Promise((r) => setImmediate(r));
+    assert.equal(held.length, count, "held Fleet GET was not observed");
+  };
+  const jsonDone = () => hangPage.evaluate(() => window.__fleetJsonDone);
+  const releaseLate = async (route, name, before) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fleetPayload(name)) });
+    await hangPage.evaluate((n) => window.__fleetJsonDone >= n ? undefined
+      : new Promise((resolve) => window.__fleetJsonWaiters.push(resolve)), before + 1);
+  };
+  try {
+    await hangPage.goto(origin, { waitUntil: "domcontentloaded" });
+    await hangPage.getByRole("button", { name: "Fleet", exact: true }).click();
+    const hangCard = hangPage.locator(".module").filter({ hasText: "Fleet Machines" });
+    await hangCard.locator(".state-ready").waitFor();
+    assert((await hangCard.innerText()).includes("Local Probe"), "first Fleet GET did not load");
+
+    // Read 2 is held. Before the 8-second deadline the last ready row is still shown.
+    await hangPage.clock.fastForward(31_000);
+    await waitForHeld(1);
+    assert((await hangCard.innerText()).includes("Local Probe"), "row cleared before the deadline");
+    await hangPage.clock.fastForward(8_000);
+    await hangCard.locator(".state-unavailable").waitFor({ timeout: 5_000 });
+    let text = await hangCard.innerText();
+    assert(!text.includes("Local Probe"), "hung refresh kept the green machine row");
+    assert(text.includes("תם הזמן"), "timeout lacks explicit denial");
+
+    // Late body for the timed-out read 2 must not resurrect rows.
+    await releaseLate(held[0], "Late Probe A", await jsonDone());
+    assert.equal(await hangCard.locator(".state-ready").count(), 0, "late first read resurrected rows");
+    assert(!(await hangCard.innerText()).includes("Late Probe"), "late first read rendered a row");
+
+    // Read 3 (next 30-second poll, 39s -> 60s) recovers, then read 4 hangs again.
+    await hangPage.clock.fastForward(21_000);
+    await hangCard.locator(".state-ready").waitFor();
+    assert((await hangCard.innerText()).includes("Recovered Probe"), "recovery read did not load");
+    await hangPage.clock.fastForward(30_000);
+    await waitForHeld(2);
+    assert((await hangCard.innerText()).includes("Recovered Probe"), "row cleared before the second deadline");
+    await hangPage.clock.fastForward(8_000);
+    await hangCard.locator(".state-unavailable").waitFor({ timeout: 5_000 });
+    text = await hangCard.innerText();
+    assert(!text.includes("Recovered Probe"), "second hung refresh kept the green machine row");
+
+    // Late body for the timed-out read 4 must not resurrect rows.
+    await releaseLate(held[1], "Late Probe B", await jsonDone());
+    assert.equal(await hangCard.locator(".state-ready").count(), 0, "late second read resurrected rows");
+    assert(!(await hangCard.innerText()).includes("Late Probe"), "late second read rendered a row");
+    assert.equal(hangCalls, 4, "unexpected Fleet GET count");
+    assert.deepEqual(hangErrors, [], "hung Fleet browser errors: " + hangErrors.join(","));
+    console.log("PORTAL_TRUTH_PASS case=hung_fleet_refresh_fails_closed_late_results_ignored");
+  } finally {
+    await hangPage.close();
+  }
 } finally {
   if (browser) await browser.close();
   child.kill();
