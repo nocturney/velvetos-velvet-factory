@@ -183,7 +183,14 @@ cmd_verify() {
   if command -v gcloud >/dev/null 2>&1; then
     local rev
     rev="$(gcloud run services describe "$SERVICE" "${GC[@]}" --format=json |
-      python3 -c 'import json,sys; t=[x for x in json.load(sys.stdin)["status"].get("traffic",[]) if x.get("tag")==sys.argv[1]]; print(t[0].get("revisionName","") if t else ""); [print("TRAFFIC_NOT_ZERO", file=sys.stderr) for x in t if x.get("percent",0)]' "$TAG")"
+      python3 -c '
+import json, sys
+t = [x for x in json.load(sys.stdin)["status"].get("traffic", []) if x.get("tag") == sys.argv[1]]
+print(t[0].get("revisionName", "") if t else "")
+hot = [x for x in t if x.get("percent", 0)]
+for _ in hot: print("TRAFFIC_NOT_ZERO", file=sys.stderr)
+sys.exit(1 if hot else 0)
+' "$TAG")" || { echo "FAIL canary must hold 0% traffic (or traffic lookup failed)"; fail=1; }
     note "canary revision: ${rev}"
     gcloud run revisions describe "$rev" "${GC[@]}" --format='value(status.conditions)'
     note "recent canary logs mentioning the guard (no request bodies):"
@@ -223,6 +230,7 @@ TXT
 }
 
 cmd_plan() {
+  APPLY=0 # plan is always a dry-run, even when --apply is passed
   cat <<TXT
 # IAP guard canary runbook: project=${PROJECT} region=${REGION} service=${SERVICE} tag=${TAG}
 # Prerequisites: #62 merged (/liveness + enablement safety) and CI green on that main SHA;

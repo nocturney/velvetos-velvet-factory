@@ -152,3 +152,100 @@ test("inputs are strict: digest-pinned image, exact audience, valid emails and t
   assert.notEqual(run(["promote"]).status, 0, "unknown command accepted");
   console.log("CANARY_SCRIPT_PASS dry_run_default_no_traffic_strict_inputs");
 });
+
+// Regression harness, independent of run() above: a fake gcloud answers `run services
+// describe` with the synthetic service JSON given by the test, and a fake curl prints a
+// fixed "<http_code> <redirect_url>". Nothing real runs: no gcloud, no curl, no network.
+const TAG_URL = "https://iapcanary---velvetos-control-center-staging-123456.me-west1.run.app";
+
+function runCanary(args, { env = {}, serviceJson = "{}", curlOut = "" } = {}) {
+  const bin = mkdtempSync(join(tmpdir(), "fake-canary-"));
+  try {
+    const log = join(bin, "calls.log");
+    const svc = join(bin, "service.json");
+    writeFileSync(svc, serviceJson);
+    writeFileSync(join(bin, "gcloud"), [
+      "#!/usr/bin/env bash",
+      `printf '%s\\n' "$*" >> "$FAKE_GCLOUD_LOG"`,
+      'if [[ "$*" == *"services describe"* ]]; then cat "$FAKE_SERVICE_JSON"; exit 0; fi',
+      'if [[ "$*" == *"revisions describe"* ]]; then echo "Ready=True"; exit 0; fi',
+      "echo '{}'",
+      "",
+    ].join("\n"));
+    writeFileSync(join(bin, "curl"), "#!/usr/bin/env bash\nprintf '%s' \"$FAKE_CURL_OUT\"\n");
+    chmodSync(join(bin, "gcloud"), 0o755);
+    chmodSync(join(bin, "curl"), 0o755);
+    const { shell, path } = shellLaunch(bin);
+    let script = SCRIPT;
+    const src = readFileSync(SCRIPT, "utf8");
+    if (src.includes("\r\n")) {
+      script = join(bin, "iap-guard-canary.lf.sh");
+      writeFileSync(script, src.replace(/\r\n/g, "\n"));
+    }
+    const r = spawnSync(shell, [toPosixPath(script), ...args], {
+      encoding: "utf8",
+      env: childEnv(path, {
+        FAKE_GCLOUD_LOG: toPosixPath(log),
+        FAKE_SERVICE_JSON: toPosixPath(svc),
+        FAKE_CURL_OUT: curlOut,
+      }, env),
+      timeout: 30_000,
+    });
+    if (r.error) throw new Error("failed to start " + shell + ": " + r.error.message);
+    if (r.status === null) throw new Error(`${shell} ended without an exit status (signal ${r.signal}): ${r.stdout}${r.stderr}`);
+    const calls = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").filter(Boolean) : [];
+    return { status: r.status, out: r.stdout + r.stderr, calls };
+  } finally {
+    rmSync(bin, { recursive: true, force: true });
+  }
+}
+
+// Synthetic Cloud Run service JSON: the tagged canary holds `percent` of traffic.
+function serviceJson(percent) {
+  return JSON.stringify({
+    metadata: { annotations: { "run.googleapis.com/iap-enabled": "true" } },
+    spec: { template: { spec: { containers: [{ image: IMAGE, env: [{ name: "VELVETOS_REQUIRE_IAP" }] }] } } },
+    status: {
+      url: "https://velvetos-control-center-staging-123456.me-west1.run.app",
+      latestReadyRevisionName: "velvetos-control-center-staging-00002-canary",
+      latestCreatedRevisionName: "velvetos-control-center-staging-00002-canary",
+      traffic: [
+        { percent: 100 - percent, revisionName: "velvetos-control-center-staging-00001-stable" },
+        { percent, revisionName: "velvetos-control-center-staging-00002-canary", tag: "iapcanary", url: TAG_URL },
+      ],
+    },
+  });
+}
+
+const DENIED_GOOGLE = "302 https://accounts.google.com/o/oauth2/v2/auth?client_id=test";
+
+test("plan --apply is always a dry-run and never calls gcloud deploy or rollback", () => {
+  for (const confirm of ["deploy-no-traffic", "remove-tag"]) {
+    const r = runCanary(["plan", "--image", IMAGE, "--audience", AUD, "--allowed-emails", OWNER, "--apply"],
+      { env: { CANARY_CONFIRM: confirm } });
+    assert.equal(r.status, 0, r.out);
+    assert.deepEqual(r.calls, [], "gcloud called by plan --apply with CANARY_CONFIRM=" + confirm + ": " + r.calls.join(" | "));
+    assert.match(r.out, /DRY-RUN/);
+  }
+});
+
+test("verify fails when the tagged canary receives traffic, even with denied anonymous endpoints", () => {
+  const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJson(20), curlOut: DENIED_GOOGLE });
+  assert.notEqual(r.status, 0, r.out);
+  assert.match(r.out, /TRAFFIC_NOT_ZERO/);
+  assert.match(r.out, /FAIL canary must hold 0% traffic/);
+  assert.match(r.out, /PASS anonymous \/ -> 302 Google sign-in/);
+});
+
+test("verify passes with 0% canary traffic and denied anonymous endpoints", () => {
+  const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE });
+  assert.equal(r.status, 0, r.out);
+  assert.doesNotMatch(r.out, /TRAFFIC_NOT_ZERO|FAIL/);
+  assert.match(r.out, /PASS anonymous \/liveness -> 302 Google sign-in/);
+});
+
+test("verify fails with 0% canary traffic when an anonymous endpoint is answered", () => {
+  const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJson(0), curlOut: "200 " });
+  assert.notEqual(r.status, 0, r.out);
+  assert.match(r.out, /FAIL anonymous \/ -> 200/);
+});
