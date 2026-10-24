@@ -21,9 +21,17 @@ export function useControlSnapshot() {
       ongoing?.abort();
       const controller = new AbortController();
       ongoing = controller;
-      const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      // The deadline rejects independently of fetch honoring abort, so a hung adapter cannot
+      // keep the previous snapshot current. Promise.race ignores any late settlement.
+      let timeout = 0;
+      const deadline = new Promise<never>((_, reject) => {
+        timeout = window.setTimeout(() => {
+          controller.abort();
+          reject(new Error("control_snapshot_timeout"));
+        }, REQUEST_TIMEOUT_MS);
+      });
       try {
-        const next = await controlApi.snapshot(controller.signal);
+        const next = await Promise.race([controlApi.snapshot(controller.signal), deadline]);
         if (!active || request !== generation) return;
         if (!isControlSnapshot(next)) throw new Error("invalid_control_schema");
         setSnapshot(next);
