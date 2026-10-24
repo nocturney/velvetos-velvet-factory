@@ -47,4 +47,19 @@ describe("portal snapshot truth", () => {
     const future = new Date(NOW + 120_000).toISOString();
     expect(evaluateSnapshotHealth(observed({ freshness: { state: "live", verifiedAt: future } }), NOW)).toBe("unknown");
   });
+  it("never reports live or fresh from a wrapper generatedAt without a source observation", () => {
+    expect(evaluateSnapshotHealth(observed({ freshness: { state: "live" } }), NOW)).toBe("unknown");
+    expect(evaluateSnapshotHealth(observed({ freshness: { state: "fresh" } }), NOW)).toBe("unknown");
+  });
+  it("does not fall back to generatedAt for empty or non-string verifiedAt", () => {
+    expect(evaluateSnapshotHealth(observed({ freshness: { state: "live", verifiedAt: "" } }), NOW)).toBe("unknown");
+    expect(evaluateSnapshotHealth(observed({ freshness: { state: "fresh", verifiedAt: 1234 } }), NOW)).toBe("unknown");
+    expect(evaluateSnapshotHealth(observed({ freshness: { state: "fresh", verifiedAt: null } }), NOW)).toBe("unknown");
+  });
+  it("keeps the 90s age boundary inclusive and the +30s future skew allowance", () => {
+    const edge = new Date(NOW - MAX_SNAPSHOT_AGE_MS).toISOString();
+    const skew = new Date(NOW + 30_000).toISOString();
+    expect(evaluateSnapshotHealth(observed({ freshness: { state: "fresh", verifiedAt: edge } }), NOW)).toBe("fresh");
+    expect(evaluateSnapshotHealth(observed({ freshness: { state: "live", verifiedAt: skew } }), NOW)).toBe("live");
+  });
 });
