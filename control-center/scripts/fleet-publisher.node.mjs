@@ -26,17 +26,34 @@ const rows = [{
 }];
 
 function mkTransport(opts = {}) {
-  const obj = { remote: "0", uploaded: [], failMode: null };
+  const obj = { remote: "0", uploaded: [], uploadedRaw: [], failMode: null };
   const client = {
     bucket:identity.bucket, objectName:identity.objectName,
     async inspect() {
       if (obj.failMode === "inspect_denied") throw Error("synthetic_denied");
+      if (obj.failMode === "readback_drift" && obj.uploaded.length > 0)
+        return String(Number(obj.remote) + 1);
       return obj.remote;
+    },
+    async readSignedAtGeneration(generation) {
+      if (obj.failMode === "readback_denied") throw Error("synthetic_readback_denied");
+      if (generation !== obj.remote || obj.uploadedRaw.length === 0)
+        throw Error("synthetic_generation_not_found");
+      const raw = obj.uploadedRaw.at(-1);
+      const signed = JSON.parse(raw);
+      if (obj.failMode === "readback_bad_signature")
+        signed.signature = "A".repeat(86);
+      return {
+        signed,
+        sha256: obj.failMode === "readback_bad_digest" ?
+          "0".repeat(64) : crypto.createHash("sha256").update(raw).digest("hex"),
+      };
     },
     async uploadIfGeneration(body, generation) {
       if (obj.failMode === "upload_denied") throw Error("synthetic_upload_denied");
       if (generation !== obj.remote) throw Error("gcs_generation_precondition_failed");
       obj.remote = String(Number(obj.remote) + 1);
+      obj.uploadedRaw.push(body);
       obj.uploaded.push(JSON.parse(body));
       if (obj.failMode === "commit_unknown") throw Error("synthetic_network_after_commit");
       return obj.remote;
@@ -153,7 +170,11 @@ test("unknown upload outcome and optimistic CAS conflict block retries until man
     const state=JSON.parse(await fs.readFile(file,"utf8"));
     assert.equal(state.lastSequence,clock);
     assert.equal(state.generation,"0");
-    assert.deepEqual(state.pending,{expectedGeneration:"0",sequence:clock});
+    assert.equal(state.pending.expectedGeneration,"0");
+    assert.equal(state.pending.sequence,clock);
+    assert.match(state.pending.sha256,/^[a-f0-9]{64}$/);
+    assert.equal(state.pending.sha256,crypto.createHash("sha256")
+      .update(JSON.stringify(obj.uploaded[0])).digest("hex"));
     obj.failMode=null;
     clock+=2_000;
     await assert.rejects(publishFleetSnapshotOnce(opts(file,client)),
@@ -277,4 +298,60 @@ test("GCS publisher uses fixed metadata+media endpoints and ifGenerationMatch", 
   await assert.rejects(transport.inspect(),/gcs_metadata_not_json/);
   assert(requests>=5&&tokens===requests);
   console.log("FLEET_PUBLISHER_PASS GCS_media_CAS_412_no_token_in_URL");
+});
+
+
+test("publisher commits only after signed exact-generation readback; failures leave pending",async()=>{
+  const modes=[
+    ["readback_denied",/synthetic_readback_denied/],
+    ["readback_bad_digest",/publisher_signed_readback_digest_mismatch/],
+    ["readback_bad_signature",/publisher_signed_readback_unverified/],
+    ["readback_drift",/publisher_signed_readback_generation_drift/],
+  ];
+  for(const [mode,expected] of modes){
+    await withTemp(async(file)=>{
+      const {client,obj}=mkTransport();
+      obj.failMode=mode;
+      await assert.rejects(publishFleetSnapshotOnce(opts(file,client)),expected);
+      const state=JSON.parse(await fs.readFile(file,"utf8"));
+      assert.equal(state.generation,"0");
+      assert.equal(state.pending.sequence,state.lastSequence); assert(state.pending.sequence>0);
+      assert.match(state.pending.sha256,/^[a-f0-9]{64}$/);
+      assert.equal(obj.remote,"1");
+      assert.equal(obj.uploaded.length,1);
+      obj.failMode=null;
+      clock+=1_000;
+      await assert.rejects(publishFleetSnapshotOnce(opts(file,client)),
+        /publisher_pending_requires_manual_reconcile/);
+      assert.equal(obj.uploaded.length,1);
+    });
+  }
+  console.log("FLEET_PUBLISHER_PASS readback_failure_never_commits_or_retries");
+});
+
+test("publisher requires generation-pinned readback transport before any upload",async()=>{
+  await withTemp(async(file)=>{
+    const {client,obj}=mkTransport();
+    const withoutReadback={...client,readSignedAtGeneration:undefined};
+    await assert.rejects(publishFleetSnapshotOnce(opts(file,withoutReadback)),
+      /publisher_dependencies_not_approved/);
+    assert.equal(obj.uploaded.length,0);
+    await assert.rejects(fs.stat(file),{code:"ENOENT"});
+  });
+});
+
+test("publisher rejects a readback that arrives after snapshot expiration",async()=>{
+  await withTemp(async(file)=>{
+    const {client,obj}=mkTransport();
+    let calls=0;
+    const optsClock=()=>clock+(calls++===0?0:70_000);
+    await assert.rejects(publishFleetSnapshotOnce(opts(file,client,{now:optsClock})),
+      /publisher_signed_readback_unverified/);
+    assert.equal(obj.uploaded.length,1);
+    const state=JSON.parse(await fs.readFile(file,"utf8"));
+    assert.equal(state.pending.sequence,state.lastSequence); assert(state.pending.sequence>0);
+    assert.equal(state.generation,"0");
+    assert.equal(state.lastCommittedAt,null);
+    console.log("FLEET_PUBLISHER_PASS readback_expiry_pending_fail_closed");
+  });
 });

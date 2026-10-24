@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { MAX_ENVELOPE_BYTES } from "./fleet-signed-snapshot.mjs";
+import { MAX_ENVELOPE_BYTES, verifySignedFleetSnapshot } from "./fleet-signed-snapshot.mjs";
 import { makeSnapshotPublisher } from "./fleet-signed-publisher.mjs";
 import { withPublisherStateLock } from "./fleet-publisher-state.mjs";
 
@@ -72,6 +72,7 @@ export async function publishFleetSnapshotOnce({
 }) {
   if (!identity || !transport || typeof transport.inspect !== "function" ||
       typeof transport.uploadIfGeneration !== "function" ||
+      typeof transport.readSignedAtGeneration !== "function" ||
       transport.bucket !== identity.bucket ||
       transport.objectName !== identity.objectName ||
       typeof getViewerToken !== "function" ||
@@ -123,14 +124,34 @@ export async function publishFleetSnapshotOnce({
 
       // Reserve sequence DURABLY before remote POST. After an uncertain upload,
       // pending state blocks automatic retry until a human checks GCS generation.
+      const bodySha256 = crypto.createHash("sha256").update(serialized).digest("hex");
       const reserved = {
         ...state, lastSequence: sequence, lastIssuedAt: issuedAt,
-        pending: { expectedGeneration: state.generation, sequence },
+        pending: { expectedGeneration: state.generation, sequence, sha256: bodySha256 },
       };
       await save(reserved);
       const generation = await transport.uploadIfGeneration(serialized, state.generation);
       if (typeof generation !== "string" || !/^[1-9][0-9]{0,24}$/.test(generation) ||
           generation === state.generation) throw new Error("publisher_invalid_upload_receipt");
+      // A successful POST acknowledgement is not enough: retrieve the exact
+      // new generation and verify the original signed bytes before committing.
+      // On ANY readback error, the durable pending record stays in place.
+      const readback = await transport.readSignedAtGeneration(generation);
+      if (readback?.sha256 !== bodySha256)
+        throw new Error("publisher_signed_readback_digest_mismatch");
+      try {
+        verifySignedFleetSnapshot(readback.signed, {
+          publicKey: crypto.createPublicKey(signer),
+          keyId: identity.keyId, now: now(),
+        });
+        if (readback.signed.sequence !== sequence ||
+            readback.signed.issuedAt !== issuedAt)
+          throw new Error("readback_claim_mismatch");
+      } catch {
+        throw new Error("publisher_signed_readback_unverified");
+      }
+      if (await transport.inspect() !== generation)
+        throw new Error("publisher_signed_readback_generation_drift");
       await save({
         ...reserved, generation, pending: null, lastCommittedAt: issuedAt,
       });
@@ -138,7 +159,7 @@ export async function publishFleetSnapshotOnce({
         schema: "velvetos.portal.fleet-publication-receipt.v1",
         sequence, generation, count: signed.payload.count,
         issuedAt, expiresAt: signed.expiresAt,
-        sha256: crypto.createHash("sha256").update(serialized).digest("hex"),
+        sha256: bodySha256,
         // Deliberately never return raw machines, token or signing private key.
       };
     });
