@@ -262,6 +262,45 @@ test("private GCS reader is a single metadata-token GET of a fixed HTTPS object"
   console.log("FLEET_SIGNED_PASS GCS_metadata_only_GET_https_origin_no_fallback");
 });
 
+test("oversized GCS stream fails promptly whether peer cancel never settles, rejects or resolves", async () => {
+  const cancelOutcomes = {
+    never_settles: () => new Promise(() => {}),
+    rejected: () => Promise.reject(new Error("synthetic_cancel_rejected")),
+    resolved: () => Promise.resolve(),
+  };
+  for (const [outcome, peerCancel] of Object.entries(cancelOutcomes)) {
+    let cancelCalls = 0;
+    const env = {
+      VELVETOS_FLEET_SNAPSHOT_MODE: "gcs",
+      VELVETOS_FLEET_SNAPSHOT_PUBLIC_SPKI_B64: publicB64,
+      VELVETOS_FLEET_SNAPSHOT_KEY_ID: signerId,
+      VELVETOS_FLEET_SNAPSHOT_BUCKET: "vf-private-example",
+      VELVETOS_FLEET_SNAPSHOT_OBJECT: "portal/fleet/status.json",
+    };
+    const fetchImpl = async (url) => {
+      if (String(url).startsWith("http://metadata.google.internal/")) {
+        return new Response(JSON.stringify({ access_token: "SYNTHETIC_ACCESS" }), {
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(new ReadableStream({
+        start(controller) { controller.enqueue(new Uint8Array(1024 * 1024)); },
+        cancel() { cancelCalls++; return peerCancel(); },
+      }), { headers: { "content-type": "application/json" } });
+    };
+    const read = makeSignedFleetSource(env, { fetchImpl });
+    let timer;
+    const result = await Promise.race([
+      read().then(() => "ACCEPTED", error =>
+        error?.message === "fleet_source_oversized" ? "REJECTED_OVERSIZED" : "REJECTED_OTHER"),
+      new Promise(resolve => { timer = setTimeout(() => resolve("HUNG"), 500); }),
+    ]);
+    clearTimeout(timer);
+    assert.equal(cancelCalls, 1, `oversized stream was not cancelled once (${outcome})`);
+    assert.equal(result, "REJECTED_OVERSIZED", `oversize denial hung or rejected for the wrong reason (${outcome})`);
+  }
+});
+
 test("fixture adapter runs only under explicit temp/loopback test-only gates", () => {
   const fixture = path.join(os.tmpdir(), "vf-synthetic-snapshot.json");
   const config = {
