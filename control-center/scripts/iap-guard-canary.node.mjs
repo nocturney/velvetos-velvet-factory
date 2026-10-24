@@ -200,21 +200,29 @@ function runCanary(args, { env = {}, serviceJson = "{}", curlOut = "" } = {}) {
   }
 }
 
-// Synthetic Cloud Run service JSON: the tagged canary holds `percent` of traffic.
-function serviceJson(percent) {
+const STABLE = "velvetos-control-center-staging-00001-stable";
+const CANARY = "velvetos-control-center-staging-00002-canary";
+
+// Synthetic Cloud Run service JSON with an explicit status.traffic list (null = absent).
+function serviceJsonWithTraffic(traffic) {
   return JSON.stringify({
     metadata: { annotations: { "run.googleapis.com/iap-enabled": "true" } },
     spec: { template: { spec: { containers: [{ image: IMAGE, env: [{ name: "VELVETOS_REQUIRE_IAP" }] }] } } },
     status: {
       url: "https://velvetos-control-center-staging-123456.me-west1.run.app",
-      latestReadyRevisionName: "velvetos-control-center-staging-00002-canary",
-      latestCreatedRevisionName: "velvetos-control-center-staging-00002-canary",
-      traffic: [
-        { percent: 100 - percent, revisionName: "velvetos-control-center-staging-00001-stable" },
-        { percent, revisionName: "velvetos-control-center-staging-00002-canary", tag: "iapcanary", url: TAG_URL },
-      ],
+      latestReadyRevisionName: CANARY,
+      latestCreatedRevisionName: CANARY,
+      traffic,
     },
   });
+}
+
+// Synthetic Cloud Run service JSON: the tagged canary holds `percent` of traffic.
+function serviceJson(percent) {
+  return serviceJsonWithTraffic([
+    { percent: 100 - percent, revisionName: STABLE },
+    { percent, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+  ]);
 }
 
 const DENIED_GOOGLE = "302 https://accounts.google.com/o/oauth2/v2/auth?client_id=test";
@@ -248,4 +256,64 @@ test("verify fails with 0% canary traffic when an anonymous endpoint is answered
   const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJson(0), curlOut: "200 " });
   assert.notEqual(r.status, 0, r.out);
   assert.match(r.out, /FAIL anonymous \/ -> 200/);
+});
+
+test("verify fails when the canary revision gets traffic through an untagged entry, though the tagged entry shows 0%", () => {
+  const r = runCanary(["verify", "--tag-url", TAG_URL], {
+    serviceJson: serviceJsonWithTraffic([
+      { percent: 80, revisionName: STABLE },
+      { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+      { percent: 20, revisionName: CANARY },
+    ]),
+    curlOut: DENIED_GOOGLE,
+  });
+  assert.notEqual(r.status, 0, r.out);
+  assert.match(r.out, /TRAFFIC_NOT_ZERO 20 /);
+  assert.match(r.out, /FAIL canary must hold 0% traffic/);
+  assert.ok(!r.calls.some((c) => c.includes("revisions describe")), "canary logs read after a failed traffic check");
+});
+
+test("verify passes only when every entry for the canary revision is 0% (true zero-traffic control)", () => {
+  const r = runCanary(["verify", "--tag-url", TAG_URL], {
+    serviceJson: serviceJsonWithTraffic([
+      { percent: 100, revisionName: STABLE },
+      { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+      { percent: 0, revisionName: CANARY },
+    ]),
+    curlOut: DENIED_GOOGLE,
+  });
+  assert.equal(r.status, 0, r.out);
+  assert.doesNotMatch(r.out, /TRAFFIC_NOT_ZERO|TRAFFIC_UNVERIFIABLE|FAIL/);
+  assert.ok(r.calls.some((c) => c.includes("revisions describe " + CANARY)), "canary revision not read: " + r.calls.join(" | "));
+});
+
+test("verify fails closed on missing, ambiguous or malformed canary traffic", () => {
+  const cases = {
+    "traffic absent": null,
+    "traffic empty": [],
+    "no tagged entry": [{ percent: 100, revisionName: STABLE }],
+    "two tagged entries": [
+      { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+      { percent: 0, revisionName: STABLE, tag: "iapcanary", url: TAG_URL },
+    ],
+    "tagged entry without revisionName": [
+      { percent: 100, revisionName: STABLE },
+      { percent: 0, latestRevision: true, tag: "iapcanary", url: TAG_URL },
+    ],
+    "untagged latestRevision at positive percent": [
+      { percent: 80, revisionName: STABLE },
+      { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+      { percent: 20, latestRevision: true },
+    ],
+    "percent as string": [
+      { percent: 100, revisionName: STABLE },
+      { percent: "0", revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+    ],
+  };
+  for (const [name, traffic] of Object.entries(cases)) {
+    const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJsonWithTraffic(traffic), curlOut: DENIED_GOOGLE });
+    assert.notEqual(r.status, 0, name + " accepted:\n" + r.out);
+    assert.match(r.out, /FAIL canary must hold 0% traffic/, name);
+    assert.ok(!r.calls.some((c) => c.includes("revisions describe")), name + ": canary logs read after failure");
+  }
 });

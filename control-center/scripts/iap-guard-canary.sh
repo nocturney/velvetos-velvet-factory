@@ -178,19 +178,43 @@ cmd_verify() {
       python3 -c 'import json,sys; t=[x for x in json.load(sys.stdin)["status"].get("traffic",[]) if x.get("tag")==sys.argv[1]]; print(t[0]["url"] if t else "")' "$TAG")"
   fi
   [[ "$TAG_URL" =~ ^https://${TAG}---[a-z0-9.-]+\.run\.app$ ]] || die "tag URL not found or not a ${TAG}--- run.app URL"
-  local fail=0
+  local fail=0 rev
   for p in / /health /liveness /api/control/v1/snapshot; do expect_denied "$p" || fail=1; done
-  if command -v gcloud >/dev/null 2>&1; then
-    local rev
-    rev="$(gcloud run services describe "$SERVICE" "${GC[@]}" --format=json |
+  # Traffic is judged per canary REVISION, not per tagged entry: the same revision can be
+  # served through an untagged entry. Missing, ambiguous or malformed traffic fails closed.
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "FAIL canary traffic unverifiable (gcloud not found)"; fail=1
+  elif ! rev="$(gcloud run services describe "$SERVICE" "${GC[@]}" --format=json |
       python3 -c '
 import json, sys
-t = [x for x in json.load(sys.stdin)["status"].get("traffic", []) if x.get("tag") == sys.argv[1]]
-print(t[0].get("revisionName", "") if t else "")
-hot = [x for x in t if x.get("percent", 0)]
-for _ in hot: print("TRAFFIC_NOT_ZERO", file=sys.stderr)
-sys.exit(1 if hot else 0)
-' "$TAG")" || { echo "FAIL canary must hold 0% traffic (or traffic lookup failed)"; fail=1; }
+tag = sys.argv[1]
+traffic = json.load(sys.stdin)["status"].get("traffic")
+def unverifiable(why):
+    print("TRAFFIC_UNVERIFIABLE " + why, file=sys.stderr)
+    sys.exit(1)
+if not isinstance(traffic, list) or not traffic:
+    unverifiable("traffic list missing or empty")
+for x in traffic:
+    p = x.get("percent", 0) if isinstance(x, dict) else None
+    if not isinstance(p, int) or isinstance(p, bool) or not 0 <= p <= 100:
+        unverifiable("malformed percent")
+tagged = [x for x in traffic if x.get("tag") == tag]
+if len(tagged) != 1:
+    unverifiable("expected one entry tagged " + tag + ", found " + str(len(tagged)))
+rev = tagged[0].get("revisionName")
+if not isinstance(rev, str) or not rev:
+    unverifiable("tagged entry has no revisionName")
+# Any positive share on the canary revision fails, tagged or not. An entry with no
+# revisionName (latestRevision) cannot be shown to avoid the canary, so it fails too.
+hot = [x for x in traffic if x.get("percent", 0) > 0 and x.get("revisionName") in (rev, None, "")]
+for x in hot:
+    print("TRAFFIC_NOT_ZERO", x.get("percent", 0), x.get("revisionName") or "(unresolved latest)", file=sys.stderr)
+if hot:
+    sys.exit(1)
+print(rev)
+' "$TAG")"; then
+    echo "FAIL canary must hold 0% traffic (or traffic lookup failed)"; fail=1
+  else
     note "canary revision: ${rev}"
     gcloud run revisions describe "$rev" "${GC[@]}" --format='value(status.conditions)'
     note "recent canary logs mentioning the guard (no request bodies):"
