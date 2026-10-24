@@ -6,6 +6,7 @@ import path from "node:path";
 export const PUBLISHER_STATE_SCHEMA = "velvetos.portal.fleet-publisher-state.v1";
 const GENERATION = /^(0|[1-9][0-9]{0,24})$/;
 const isText = x => typeof x === "string";
+const isSha256 = x => typeof x === "string" && /^[a-f0-9]{64}$/.test(x);
 const hasExactKeys = (v, keys) =>
   v && typeof v === "object" && !Array.isArray(v) &&
   JSON.stringify(Object.keys(v).sort()) === JSON.stringify(keys.slice().sort());
@@ -24,10 +25,12 @@ export function validatePublisherState(state, { bucket, objectName, keyId }) {
       !(state.lastIssuedAt === null || (isText(state.lastIssuedAt) &&
         !Number.isNaN(Date.parse(state.lastIssuedAt)))) ||
       !(state.pending === null ||
-        (hasExactKeys(state.pending, ["expectedGeneration", "sequence"]) &&
+        ((hasExactKeys(state.pending, ["expectedGeneration", "sequence"]) ||
+          hasExactKeys(state.pending, ["expectedGeneration", "sequence", "sha256"])) &&
          GENERATION.test(state.pending.expectedGeneration) &&
          state.pending.expectedGeneration === state.generation &&
-         state.pending.sequence === state.lastSequence))) {
+         state.pending.sequence === state.lastSequence &&
+         (state.pending.sha256 === undefined || isSha256(state.pending.sha256))))) {
     throw new Error("invalid_or_mismatched_publisher_state");
   }
   return state;

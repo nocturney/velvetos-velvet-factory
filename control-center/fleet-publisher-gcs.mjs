@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { gcsFleetObjectUrl } from "./fleet-snapshot-source.mjs";
 import { MAX_ENVELOPE_BYTES } from "./fleet-signed-snapshot.mjs";
 
@@ -14,7 +15,7 @@ async function tokenFrom(provider) {
   return token;
 }
 
-async function readSmallJson(response, max) {
+async function readSmallJson(response, max, withDigest = false) {
   const type = response.headers.get("content-type") || "";
   if (!/^application\/(json|[a-z0-9.+-]+\+json)(;|$)/i.test(type))
     throw new Error("gcs_metadata_not_json");
@@ -38,8 +39,15 @@ async function readSmallJson(response, max) {
   } finally {
     reader.releaseLock();
   }
-  try { return JSON.parse(Buffer.concat(chunks, size).toString("utf8")); }
+  const raw = Buffer.concat(chunks, size);
+  let parsed;
+  try { parsed = JSON.parse(raw.toString("utf8")); }
   catch { throw new Error("gcs_metadata_malformed"); }
+  // Preserve the hash of the exact received bytes, not a re-serialized JSON
+  // object. This makes pending source-body comparison meaningful.
+  return withDigest ? {
+    signed: parsed, sha256: crypto.createHash("sha256").update(raw).digest("hex"),
+  } : parsed;
 }
 
 function checkedGeneration(value, allowEmpty = false) {
@@ -84,6 +92,25 @@ export function makeGcsPublisherTransport({
       if (!response.ok) throw new Error("gcs_metadata_denied");
       const body = await readSmallJson(response, MAX_META_BYTES);
       return checkedGeneration(body.generation);
+    },
+    // Read-only forensics for a PENDING upload. GCS checks generation before
+    // delivering bytes; caller must still validate the signed envelope.
+    async readSignedAtGeneration(expectedGeneration) {
+      checkedGeneration(expectedGeneration);
+      const token = await tokenFrom(getAccessToken);
+      const mediaUrl = gcsFleetObjectUrl(bucket, objectName) +
+        "&ifGenerationMatch=" + encodeURIComponent(expectedGeneration);
+      const response = await fetchImpl(mediaUrl, {
+        method: "GET", redirect: "error",
+        headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+        signal: AbortSignal.timeout(META_TIMEOUT_MS),
+      });
+      if (response.status === 412) throw new Error("gcs_read_generation_changed");
+      if (!response.ok) throw new Error("gcs_signed_object_unavailable");
+      const headerGeneration = response.headers.get("x-goog-generation");
+      if (headerGeneration && headerGeneration !== expectedGeneration)
+        throw new Error("gcs_read_generation_mismatch");
+      return readSmallJson(response, MAX_ENVELOPE_BYTES, true);
     },
     async uploadIfGeneration(body, expectedGeneration) {
       checkedGeneration(expectedGeneration, true);
