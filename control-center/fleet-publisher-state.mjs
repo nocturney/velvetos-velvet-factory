@@ -18,7 +18,7 @@ export function validatePublisherState(state, { bucket, objectName, keyId }) {
       state.schema !== PUBLISHER_STATE_SCHEMA ||
       state.bucket !== bucket || state.objectName !== objectName ||
       state.keyId !== keyId ||
-      !GENERATION.test(state.generation) ||
+      !isText(state.generation) || !GENERATION.test(state.generation) ||
       !Number.isSafeInteger(state.lastSequence) || state.lastSequence < 0 ||
       !(state.lastCommittedAt === null || (isText(state.lastCommittedAt) &&
         !Number.isNaN(Date.parse(state.lastCommittedAt)))) ||
@@ -27,6 +27,7 @@ export function validatePublisherState(state, { bucket, objectName, keyId }) {
       !(state.pending === null ||
         ((hasExactKeys(state.pending, ["expectedGeneration", "sequence"]) ||
           hasExactKeys(state.pending, ["expectedGeneration", "sequence", "sha256"])) &&
+         isText(state.pending.expectedGeneration) &&
          GENERATION.test(state.pending.expectedGeneration) &&
          state.pending.expectedGeneration === state.generation &&
          state.pending.sequence === state.lastSequence &&
