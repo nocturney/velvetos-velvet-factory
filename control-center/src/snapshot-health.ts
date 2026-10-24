@@ -22,9 +22,10 @@ export function evaluateSnapshotHealth(
     ? snapshot.freshness as Record<string, unknown> : {};
   const state = freshness.state;
   if (!["live", "fresh", "stale", "unknown"].includes(String(state))) return "unknown";
-  const date = typeof freshness.verifiedAt === "string" ? freshness.verifiedAt : snapshot.generatedAt;
-  if (typeof date !== "string") return "unknown";
-  const timestamp = Date.parse(date);
+  // Only the source observation time proves freshness; wrapper generatedAt never substitutes for it.
+  const verifiedAt = freshness.verifiedAt;
+  if (typeof verifiedAt !== "string") return "unknown";
+  const timestamp = Date.parse(verifiedAt);
   if (!Number.isFinite(timestamp) || timestamp > nowMs + 30_000) return "unknown";
   if (state === "stale" || nowMs - timestamp > maxAgeMs) return "stale";
   return state as SnapshotHealth;
