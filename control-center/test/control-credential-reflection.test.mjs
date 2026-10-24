@@ -3,14 +3,17 @@ import { proxyControlRequest } from "../control-proxy-boundary.mjs";
 
 const APP_TOKEN = "local-fixture-app-token-NOT-SECRET-123";
 const ID_TOKEN = "local-fixture-identity-token-NOT-SECRET-456";
+// Synthetic tokens containing a double quote and a backslash, which JSON.stringify escapes.
+const ESCAPE_APP_TOKEN = 'local-fixture-"app"\\token-NOT-SECRET-789';
+const ESCAPE_ID_TOKEN = 'local-fixture-"identity"\\token-NOT-SECRET-012';
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 
-async function proxyFixture(payload, { identity = false } = {}) {
+async function proxyFixture(payload, { identity = false, appToken = APP_TOKEN, idToken = ID_TOKEN } = {}) {
   let seen;
   globalThis.fetch = async (_url, options) => {
-    expect(options.headers.Authorization).toBe("Bearer " + (identity ? ID_TOKEN : APP_TOKEN));
-    if (identity) expect(options.headers["X-VelvetOS-Token"]).toBe(APP_TOKEN);
+    expect(options.headers.Authorization).toBe("Bearer " + (identity ? idToken : appToken));
+    if (identity) expect(options.headers["X-VelvetOS-Token"]).toBe(appToken);
     const text = typeof payload === "string" ? payload : JSON.stringify(payload);
     return new Response(text, { headers: { "Content-Type": "application/json" } });
   };
@@ -21,8 +24,8 @@ async function proxyFixture(payload, { identity = false } = {}) {
   await proxyControlRequest({
     req: { method: "GET" }, res,
     url: new URL("http://localhost/api/control/v1/snapshot"),
-    upstream: "https://control.example.test", appToken: APP_TOKEN,
-    identityToken: async () => identity ? ID_TOKEN : "",
+    upstream: "https://control.example.test", appToken,
+    identityToken: async () => identity ? idToken : "",
     writeJson(_res, status, value) { seen = { status, body: JSON.stringify(value) }; },
   });
   return seen;
@@ -46,6 +49,30 @@ test("JSON escape sequences cannot hide an echoed credential", async () => {
   const result = await proxyFixture('{"schema":"velvetos.control.v1","meta":"' + escaped + '"}');
   expect(result.status).toBe(502);
   expect(result.body).not.toContain(APP_TOKEN);
+});
+
+test("an escape-sensitive app token echoed as a JSON value is rejected", async () => {
+  const payload = { schema: "velvetos.control.v1", flags: { debug: ESCAPE_APP_TOKEN } };
+  const result = await proxyFixture(payload, { appToken: ESCAPE_APP_TOKEN });
+  expect(result.status).toBe(502);
+  expect(result.body).toBe(JSON.stringify({ error: "control_api_credential_reflection" }));
+  expect(result.body).not.toContain(ESCAPE_APP_TOKEN);
+});
+
+test("an escape-sensitive identity token echoed as a JSON object key is rejected", async () => {
+  const payload = { schema: "velvetos.control.v1", [ESCAPE_ID_TOKEN]: "ok" };
+  const result = await proxyFixture(payload, { identity: true, appToken: ESCAPE_APP_TOKEN, idToken: ESCAPE_ID_TOKEN });
+  expect(result.status).toBe(502);
+  expect(result.body).toBe(JSON.stringify({ error: "control_api_credential_reflection" }));
+  expect(result.body).not.toContain(ESCAPE_ID_TOKEN);
+});
+
+test("a safe payload passes when escape-sensitive tokens are configured", async () => {
+  const payload = { schema: "velvetos.control.v1", collections: { jobs: { state: "unknown", items: null } } };
+  const result = await proxyFixture(payload, { identity: true, appToken: ESCAPE_APP_TOKEN, idToken: ESCAPE_ID_TOKEN });
+  expect(result.status).toBe(200);
+  expect(JSON.parse(result.body)).toEqual(payload);
+  expect(result.headers["Content-Length"]).toBe(Buffer.byteLength(result.body));
 });
 
 test("duplicate JSON keys cannot preserve hidden original bytes in forwarded response", async () => {

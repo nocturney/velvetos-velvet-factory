@@ -34,6 +34,16 @@ function validatedOrigin(raw) {
   return "";
 }
 
+// Walks the logically decoded JSON value so escaped characters cannot hide an exact secret.
+function decodedContains(value, secret) {
+  if (typeof value === "string") return value.includes(secret);
+  if (Array.isArray(value)) return value.some((item) => decodedContains(item, secret));
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, item]) => key.includes(secret) || decodedContains(item, secret));
+  }
+  return false;
+}
+
 function discardUpstreamBody(response, reason) {
   // Never block denial on a potentially stalled or hostile upstream stream.
   if (response.body) void response.body.cancel(reason).catch(() => {});
@@ -104,16 +114,21 @@ export async function proxyControlRequest({ req, res, url, upstream, appToken, i
     return error(502, "invalid_upstream_content_type");
   }
   const body = await boundedBody(response);
+  let parsed;
   let serialized;
   try {
     // Re-encode the parsed JSON so duplicate object keys or JSON escape sequences
     // cannot preserve credential bytes that were hidden by JSON.parse().
-    serialized = JSON.stringify(JSON.parse(body.toString("utf8")));
+    parsed = JSON.parse(body.toString("utf8"));
+    serialized = JSON.stringify(parsed);
   } catch { return error(502, "invalid_upstream_json"); }
   // This read-only server-to-server bridge must never reflect either credential
   // into browser JSON, even if a backend erroneously includes one in a 200 body.
+  // Check both the serialized text and the decoded strings/keys, since JSON escapes
+  // (e.g. \" or \\) hide exact credential bytes from a text-only search.
   // This is an exact-value fence, not a replacement for upstream DTO minimization.
-  if (serialized.includes(appToken) || (idToken && serialized.includes(idToken)))
+  const secrets = [appToken, idToken].filter(Boolean);
+  if (secrets.some((secret) => serialized.includes(secret) || decodedContains(parsed, secret)))
     return error(502, "control_api_credential_reflection");
   const safeBody = Buffer.from(serialized, "utf8");
 
