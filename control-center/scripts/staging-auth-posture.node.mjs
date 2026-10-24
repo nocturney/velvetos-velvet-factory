@@ -115,3 +115,61 @@ test("denied API can return 403 instead of 401 without claiming owner login", as
   assert.equal(p.status,"PASS_ANONYMOUS_DENIAL_ONLY");
   assert.equal(p.actualOwnerSafariSessionVerified,false);
 });
+
+// Each synthetic response carries a body stream whose cancel() is controlled by `mode`:
+// "never" stays pending forever, "reject" fails, "resolve" settles normally.
+const ALL_URLS = [SITE + "/", SITE + "/health", API + "/health", API + "/v1/snapshot"];
+function streamingFake({ mode, site = 302, health = 200, snapshot = 401 } = {}) {
+  const cancels = [];
+  const body = (url, status, headers) => new Response(new ReadableStream({
+    cancel() {
+      cancels.push(url);
+      if (mode === "never") return new Promise(() => {});
+      if (mode === "reject") return Promise.reject(new Error("synthetic_cancel_failed"));
+      return Promise.resolve();
+    },
+  }), { status, headers });
+  const fetchImpl = async (url, options) => {
+    assert.equal(options.redirect, "manual");
+    assert.equal(options.headers.Authorization, undefined);
+    if (url === SITE + "/" || url === SITE + "/health")
+      return body(url, site, { Location: "https://accounts.google.com/signin" });
+    if (url === API + "/health") return body(url, health);
+    if (url === API + "/v1/snapshot") return body(url, snapshot);
+    throw new Error("unexpected_target");
+  };
+  return { cancels, fetchImpl };
+}
+// Fails a hung promise deterministically; the timer is cleared so no handle outlives the test.
+async function settlesWithin(promise, ms = 1000) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("hung_past_bound")), ms);
+  });
+  try { return await Promise.race([promise, timeout]); }
+  finally { clearTimeout(timer); }
+}
+
+for (const mode of ["never", "reject", "resolve"]) {
+  test(`stream cancel ${mode} does not block the anonymous-denial result`, async () => {
+    const mock = streamingFake({ mode });
+    const proof = await settlesWithin(inspectAnonymousBoundary({
+      stagingUrl: SITE, apiUrl: API, fetchImpl: mock.fetchImpl }));
+    assert.equal(proof.status, "PASS_ANONYMOUS_DENIAL_ONLY");
+    assert.equal(proof.credentialsSent, false);
+    assert.equal(proof.actualOwnerSafariSessionVerified, false);
+    assert.deepEqual([...mock.cancels].sort(), [...ALL_URLS].sort());
+  });
+
+  test(`stream cancel ${mode} stays fail-closed for public or abnormal statuses`, async () => {
+    for (const cfg of [{ site: 200 }, { site: 500 }, { health: 404 }, { snapshot: 200 }]) {
+      const mock = streamingFake({ mode, ...cfg });
+      const proof = await settlesWithin(inspectAnonymousBoundary({
+        stagingUrl: SITE, apiUrl: API, fetchImpl: mock.fetchImpl }));
+      assert.equal(proof.status, "FAIL_CLOSED_AUTH_BOUNDARY_UNVERIFIED");
+      assert.match(proof.releaseGate, /^BLOCKED_/);
+      assert.equal(proof.credentialsSent, false);
+      assert.deepEqual([...mock.cancels].sort(), [...ALL_URLS].sort());
+    }
+  });
+}

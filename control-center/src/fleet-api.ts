@@ -28,6 +28,37 @@ export interface FleetMachinesSnapshot {
   validUntil?: string;
 }
 
+// The server verified the signed envelope at fetch time, but a browser can keep
+// displaying the same React state after its short TTL elapses. Check validity
+// again at presentation time; never relabel an expired copy as fresh.
+export function displayableFleetSnapshot(
+  snapshot: FleetMachinesSnapshot | null, nowMs = Date.now(),
+): FleetMachinesSnapshot | null {
+  if (!snapshot || snapshot.transport !== "signed_snapshot") return snapshot;
+  const expiresMs = Date.parse(snapshot.validUntil ?? "");
+  return Number.isFinite(nowMs) && Number.isFinite(expiresMs) && expiresMs > nowMs
+    ? snapshot : null;
+}
+
+/**
+ * Preserve the expiry boundary of a verified signed copy when the client wall
+ * clock moves backwards. A material rollback, invalid clock, or monotonic
+ * reset invalidates the copy rather than granting additional lifetime.
+ * The browser's wall clock is NOT an authorization or signature verifier.
+ */
+export function effectiveFleetNowMs(
+  observedWallMs: number, observedMonotonicMs: number,
+  currentWallMs: number, currentMonotonicMs: number,
+): number {
+  if (![observedWallMs, observedMonotonicMs, currentWallMs, currentMonotonicMs].every(Number.isFinite) ||
+      currentMonotonicMs < observedMonotonicMs) return Number.POSITIVE_INFINITY;
+  const monotonicWallMs = observedWallMs + currentMonotonicMs - observedMonotonicMs;
+  // An ordinary sub-second clock adjustment cannot lengthen the signed TTL.
+  if (!Number.isFinite(monotonicWallMs) || currentWallMs + 1_000 < monotonicWallMs)
+    return Number.POSITIVE_INFINITY;
+  return Math.max(currentWallMs, monotonicWallMs);
+}
+
 const MAX_FLEET_MACHINES = 300;
 const PLATFORMS = ["windows", "macos", "linux", "unknown"] as const;
 const STATUSES = ["online", "offline", "unknown"] as const;
@@ -71,6 +102,14 @@ function readMachine(raw: unknown): FleetMachine {
   const os = asRecord(record.os) ?? {};
   const hardware = asRecord(record.hardware) ?? {};
   const memory = asRecord(hardware.memory) ?? {};
+  // The canonical Fleet projection (both local and signed) flattens these
+  // counters. Preserve the legacy nested fixture shape only when a flat field
+  // is absent; an explicit invalid/null canonical value must not be replaced
+  // by a conflicting nested value.
+  const totalBytes = Object.hasOwn(hardware, "memoryTotalBytes")
+    ? hardware.memoryTotalBytes : memory.totalBytes;
+  const freeBytes = Object.hasOwn(hardware, "memoryFreeBytes")
+    ? hardware.memoryFreeBytes : memory.freeBytes;
   const cores = hardware.cpuCores;
 
   return {
@@ -85,8 +124,8 @@ function readMachine(raw: unknown): FleetMachine {
     hardware: {
       cpu: asText(hardware.cpu, 160),
       cpuCores: typeof cores === "number" && Number.isInteger(cores) && cores >= 0 ? cores : null,
-      memoryTotalBytes: asBytes(memory.totalBytes),
-      memoryFreeBytes: asBytes(memory.freeBytes),
+      memoryTotalBytes: asBytes(totalBytes),
+      memoryFreeBytes: asBytes(freeBytes),
     },
   };
 }

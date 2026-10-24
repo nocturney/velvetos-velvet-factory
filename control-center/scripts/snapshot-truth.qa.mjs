@@ -79,6 +79,78 @@ try {
   assert(calls >= 2, "refresh_not_called");
   console.log("PORTAL_TRUTH_PASS case=failed_refresh_clears_live");
   await page.close();
+
+  // A previously accepted signed Fleet copy must disappear at expiresAt even
+  // while the next 30-second GET has not happened. This exercises the real React
+  // component under hosted Chromium, not just a parser helper.
+  const fleetPage = await browser.newPage();
+  await fleetPage.clock.install();
+  let fleetReads = 0;
+  const expiry = new Date(Date.now() + 10_000).toISOString();
+  const fleetBody = {
+    schema: "velvetos.portal.fleet-machines.v1",
+    source: "Velvet Fleet Console",
+    fetchedAt: new Date().toISOString(),
+    count: 1,
+    transport: "signed_snapshot",
+    validUntil: expiry,
+    machines: [{
+      id: "signed-expiry-fixture", name: "Expiry Probe", platform: "macos",
+      status: "online", freshness: "live",
+      collectedAt: new Date().toISOString(), lastSeen: new Date().toISOString(),
+      os: { name: "macOS", version: "fixture" },
+      hardware: { cpu: "Fixture CPU", cpuCores: 4, memory: { totalBytes: 1024, freeBytes: 512 } },
+    }],
+  };
+  await fleetPage.route("**/api/fleet/v1/machines", (route) => {
+    fleetReads++;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fleetBody) });
+  });
+  try {
+    await fleetPage.goto(origin, { waitUntil: "domcontentloaded" });
+    await fleetPage.getByRole("button", { name: "Fleet", exact: true }).click();
+    const card = fleetPage.locator(".module").filter({ hasText: "Fleet Machines" });
+    await card.locator(".state-ready").waitFor();
+    assert((await card.innerText()).includes("Expiry Probe"), "signed machine absent before TTL");
+    await fleetPage.clock.fastForward(12_000);
+    await card.locator(".state-unavailable").waitFor({ timeout: 5_000 });
+    const textAfter = await card.innerText();
+    assert(!textAfter.includes("Expiry Probe"), "expired signed machine remains visible");
+    assert(textAfter.includes("פג תוקף"), "expired data lacks explicit denial");
+    assert.equal(fleetReads, 1, "expiry assertion must precede the next network refresh");
+    console.log("PORTAL_TRUTH_PASS case=signed_fleet_expiry_clears_rows_before_refresh");
+  } finally {
+    await fleetPage.close();
+  }
+
+  // An owner changing the client clock backwards must never resurrect or
+  // prolong an already accepted signed snapshot (real React + Chromium).
+  const rollbackPage = await browser.newPage();
+  await rollbackPage.clock.install();
+  let rollbackReads = 0;
+  const rollbackBody = {
+    ...fleetBody,
+    validUntil: new Date(Date.now() + 20_000).toISOString(),
+  };
+  await rollbackPage.route("**/api/fleet/v1/machines", (route) => {
+    rollbackReads++;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(rollbackBody) });
+  });
+  try {
+    await rollbackPage.goto(origin, { waitUntil: "domcontentloaded" });
+    await rollbackPage.getByRole("button", { name: "Fleet", exact: true }).click();
+    const rollbackCard = rollbackPage.locator(".module").filter({ hasText: "Fleet Machines" });
+    await rollbackCard.locator(".state-ready").waitFor();
+    assert((await rollbackCard.innerText()).includes("Expiry Probe"), "rollback fixture did not load");
+    await rollbackPage.clock.setSystemTime(new Date(Date.now() - 120_000));
+    await rollbackPage.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await rollbackCard.locator(".state-unavailable").waitFor({ timeout: 5_000 });
+    assert(!(await rollbackCard.innerText()).includes("Expiry Probe"), "rollback kept signed online row visible");
+    assert.equal(rollbackReads, 1, "rollback must fail closed before another Fleet GET");
+    console.log("PORTAL_TRUTH_PASS case=signed_fleet_clock_rollback_fails_closed");
+  } finally {
+    await rollbackPage.close();
+  }
 } finally {
   if (browser) await browser.close();
   child.kill();
