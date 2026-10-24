@@ -251,3 +251,18 @@ test("GCS forensics hashes raw media bytes, not re-serialized parsed JSON",async
   assert.notEqual(r.sha256,crypto.createHash("sha256")
     .update(JSON.stringify(r.signed)).digest("hex"));
 });
+
+test("numeric publisher generations fail closed before remote inspection", async()=>{
+  await temp(async file=>{
+    const badCommitted={...state(false),generation:1};
+    const badPending={...state(true),generation:0,
+      pending:{expectedGeneration:0,sequence:1}};
+    let remoteCalls=0;
+    const remote={...mkRemote(),async inspect(){remoteCalls++;return "1";}};
+    for(const malformed of [badCommitted,badPending]){
+      await fs.writeFile(file,JSON.stringify(malformed));
+      await assert.rejects(audit(file,remote),/invalid_or_mismatched_publisher_state/);
+    }
+    assert.equal(remoteCalls,0);
+  });
+});
