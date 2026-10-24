@@ -60,6 +60,8 @@ export function effectiveFleetNowMs(
 }
 
 const MAX_FLEET_MACHINES = 300;
+const SIGNED_SNAPSHOT_MAX_TTL_MS = 90_000;
+const SIGNED_SNAPSHOT_MAX_FUTURE_SKEW_MS = 5_000;
 const PLATFORMS = ["windows", "macos", "linux", "unknown"] as const;
 const STATUSES = ["online", "offline", "unknown"] as const;
 const FRESHNESS = ["live", "stale", "unknown"] as const;
@@ -170,6 +172,13 @@ export async function getFleetMachines(signal?: AbortSignal): Promise<FleetMachi
   // A signed copy is shown only while it is still inside its validity window.
   const validUntil = asTimestamp(data.validUntil);
   if (data.transport !== "signed_snapshot" || !validUntil) throw new Error("Invalid Fleet schema");
+  // Defense in depth: the server signs issuedAt == fetchedAt with a bounded lifetime and
+  // limited clock skew. Reject an implausible window here too; this is not a signature check.
+  const issuedMs = Date.parse(fetchedAt);
+  const windowMs = Date.parse(validUntil) - issuedMs;
+  if (!(windowMs > 0 && windowMs <= SIGNED_SNAPSHOT_MAX_TTL_MS) ||
+      issuedMs - Date.now() > SIGNED_SNAPSHOT_MAX_FUTURE_SKEW_MS)
+    throw new Error("Invalid Fleet schema");
   if (Date.parse(validUntil) <= Date.now()) throw new Error("Fleet snapshot expired");
   return {
     schema: "velvetos.portal.fleet-machines.v1",
