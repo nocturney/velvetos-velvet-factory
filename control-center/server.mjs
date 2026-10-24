@@ -64,7 +64,8 @@ async function boundedLocalFleetJson(response) {
       if (done) break;
       size += value.byteLength;
       if (size > MAX_LOCAL_FLEET_BODY_BYTES) {
-        await reader.cancel("fleet_response_too_large");
+        // Reject oversized upstream data immediately even if its cancellation stalls.
+        void reader.cancel("fleet_response_too_large").catch(() => {});
         throw new Error("fleet_response_too_large");
       }
       parts.push(Buffer.from(value));
