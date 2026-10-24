@@ -165,7 +165,7 @@ Prerequisites:
 scripts/iap-guard-canary.sh preflight                       # read-only facts, env names only
 scripts/iap-guard-canary.sh deploy --image REF@sha256:... --audience /projects/N/locations/me-west1/services/velvetos-control-center-staging --allowed-emails verified-owner@example.com
 CANARY_CONFIRM=deploy-no-traffic scripts/iap-guard-canary.sh deploy ... --apply
-scripts/iap-guard-canary.sh verify                          # anonymous denial + revision Ready + owner steps
+scripts/iap-guard-canary.sh verify --audience /projects/N/locations/me-west1/services/velvetos-control-center-staging --allowed-emails verified-owner@example.com   # IAP annotation + canary revision guard + 0% traffic + anonymous denial + owner steps
 CANARY_CONFIRM=remove-tag scripts/iap-guard-canary.sh rollback --apply
 ```
 

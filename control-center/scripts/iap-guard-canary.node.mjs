@@ -154,25 +154,36 @@ test("inputs are strict: digest-pinned image, exact audience, valid emails and t
 });
 
 // Regression harness, independent of run() above: a fake gcloud answers `run services
-// describe` with the synthetic service JSON given by the test, and a fake curl prints a
-// fixed "<http_code> <redirect_url>". Nothing real runs: no gcloud, no curl, no network.
+// describe` and `run revisions describe` with the synthetic JSON given by the test, and a fake
+// curl prints a fixed "<http_code> <redirect_url>". Nothing real runs: no gcloud, no curl, no network.
 const TAG_URL = "https://iapcanary---velvetos-control-center-staging-123456.me-west1.run.app";
+const VERIFY_ARGS = ["verify", "--tag-url", TAG_URL, "--audience", AUD, "--allowed-emails", OWNER];
 
-function runCanary(args, { env = {}, serviceJson = "{}", curlOut = "" } = {}) {
+function runCanary(args, { env = {}, serviceJson = "{}", curlOut = "", revisionJson = canaryRevisionJson(), revisionFail = false } = {}) {
   const bin = mkdtempSync(join(tmpdir(), "fake-canary-"));
   try {
     const log = join(bin, "calls.log");
     const svc = join(bin, "service.json");
+    const rev = join(bin, "revision.json");
     writeFileSync(svc, serviceJson);
+    writeFileSync(rev, revisionJson);
     writeFileSync(join(bin, "gcloud"), [
       "#!/usr/bin/env bash",
       `printf '%s\\n' "$*" >> "$FAKE_GCLOUD_LOG"`,
       'if [[ "$*" == *"services describe"* ]]; then cat "$FAKE_SERVICE_JSON"; exit 0; fi',
-      'if [[ "$*" == *"revisions describe"* ]]; then echo "Ready=True"; exit 0; fi',
+      'if [[ "$*" == *"revisions describe"* ]]; then',
+      '  if [[ "$FAKE_REVISION_FAIL" == 1 ]]; then echo "ERROR: revision lookup failed" >&2; exit 1; fi',
+      '  cat "$FAKE_REVISION_JSON"; exit 0',
+      "fi",
       "echo '{}'",
       "",
     ].join("\n"));
-    writeFileSync(join(bin, "curl"), "#!/usr/bin/env bash\nprintf '%s' \"$FAKE_CURL_OUT\"\n");
+    writeFileSync(join(bin, "curl"), [
+      "#!/usr/bin/env bash",
+      `printf 'curl %s\\n' "$*" >> "$FAKE_GCLOUD_LOG"`,
+      'printf \'%s\' "$FAKE_CURL_OUT"',
+      "",
+    ].join("\n"));
     chmodSync(join(bin, "gcloud"), 0o755);
     chmodSync(join(bin, "curl"), 0o755);
     const { shell, path } = shellLaunch(bin);
@@ -187,6 +198,8 @@ function runCanary(args, { env = {}, serviceJson = "{}", curlOut = "" } = {}) {
       env: childEnv(path, {
         FAKE_GCLOUD_LOG: toPosixPath(log),
         FAKE_SERVICE_JSON: toPosixPath(svc),
+        FAKE_REVISION_JSON: toPosixPath(rev),
+        FAKE_REVISION_FAIL: revisionFail ? "1" : "0",
         FAKE_CURL_OUT: curlOut,
       }, env),
       timeout: 30_000,
@@ -203,10 +216,12 @@ function runCanary(args, { env = {}, serviceJson = "{}", curlOut = "" } = {}) {
 const STABLE = "velvetos-control-center-staging-00001-stable";
 const CANARY = "velvetos-control-center-staging-00002-canary";
 
+const IAP_ON = { "run.googleapis.com/iap-enabled": "true" };
+
 // Synthetic Cloud Run service JSON with an explicit status.traffic list (null = absent).
-function serviceJsonWithTraffic(traffic) {
+function serviceJsonWithTraffic(traffic, annotations = IAP_ON) {
   return JSON.stringify({
-    metadata: { annotations: { "run.googleapis.com/iap-enabled": "true" } },
+    metadata: { annotations },
     spec: { template: { spec: { containers: [{ image: IMAGE, env: [{ name: "VELVETOS_REQUIRE_IAP" }] }] } } },
     status: {
       url: "https://velvetos-control-center-staging-123456.me-west1.run.app",
@@ -225,6 +240,23 @@ function serviceJson(percent) {
   ]);
 }
 
+// Synthetic env of the tagged canary revision. An override set to undefined drops that name.
+function guardEnv(overrides = {}) {
+  const base = { VELVETOS_REQUIRE_IAP: "1", VELVETOS_IAP_AUDIENCE: AUD, VELVETOS_IAP_ALLOWED_EMAILS: OWNER };
+  return Object.entries({ ...base, ...overrides })
+    .filter(([, value]) => value !== undefined)
+    .map(([name, value]) => ({ name, value }));
+}
+
+// Synthetic Knative-style revision JSON, as `gcloud run revisions describe --format=json` shapes it.
+function canaryRevisionJson({ env = guardEnv(), ready = "True", containers } = {}) {
+  return JSON.stringify({
+    metadata: { name: CANARY },
+    spec: { containers: containers ?? [{ image: IMAGE, env }] },
+    status: { conditions: [{ type: "Ready", status: ready }] },
+  });
+}
+
 const DENIED_GOOGLE = "302 https://accounts.google.com/o/oauth2/v2/auth?client_id=test";
 
 test("plan --apply is always a dry-run and never calls gcloud deploy or rollback", () => {
@@ -238,7 +270,7 @@ test("plan --apply is always a dry-run and never calls gcloud deploy or rollback
 });
 
 test("verify fails when the tagged canary receives traffic, even with denied anonymous endpoints", () => {
-  const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJson(20), curlOut: DENIED_GOOGLE });
+  const r = runCanary(VERIFY_ARGS,{ serviceJson: serviceJson(20), curlOut: DENIED_GOOGLE });
   assert.notEqual(r.status, 0, r.out);
   assert.match(r.out, /TRAFFIC_NOT_ZERO/);
   assert.match(r.out, /FAIL canary must hold 0% traffic/);
@@ -246,20 +278,20 @@ test("verify fails when the tagged canary receives traffic, even with denied ano
 });
 
 test("verify passes with 0% canary traffic and denied anonymous endpoints", () => {
-  const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE });
+  const r = runCanary(VERIFY_ARGS,{ serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE });
   assert.equal(r.status, 0, r.out);
   assert.doesNotMatch(r.out, /TRAFFIC_NOT_ZERO|FAIL/);
   assert.match(r.out, /PASS anonymous \/liveness -> 302 Google sign-in/);
 });
 
 test("verify fails with 0% canary traffic when an anonymous endpoint is answered", () => {
-  const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJson(0), curlOut: "200 " });
+  const r = runCanary(VERIFY_ARGS,{ serviceJson: serviceJson(0), curlOut: "200 " });
   assert.notEqual(r.status, 0, r.out);
   assert.match(r.out, /FAIL anonymous \/ -> 200/);
 });
 
 test("verify fails when the canary revision gets traffic through an untagged entry, though the tagged entry shows 0%", () => {
-  const r = runCanary(["verify", "--tag-url", TAG_URL], {
+  const r = runCanary(VERIFY_ARGS,{
     serviceJson: serviceJsonWithTraffic([
       { percent: 80, revisionName: STABLE },
       { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
@@ -274,7 +306,7 @@ test("verify fails when the canary revision gets traffic through an untagged ent
 });
 
 test("verify passes only when every entry for the canary revision is 0% (true zero-traffic control)", () => {
-  const r = runCanary(["verify", "--tag-url", TAG_URL], {
+  const r = runCanary(VERIFY_ARGS,{
     serviceJson: serviceJsonWithTraffic([
       { percent: 100, revisionName: STABLE },
       { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
@@ -311,9 +343,159 @@ test("verify fails closed on missing, ambiguous or malformed canary traffic", ()
     ],
   };
   for (const [name, traffic] of Object.entries(cases)) {
-    const r = runCanary(["verify", "--tag-url", TAG_URL], { serviceJson: serviceJsonWithTraffic(traffic), curlOut: DENIED_GOOGLE });
+    const r = runCanary(VERIFY_ARGS,{ serviceJson: serviceJsonWithTraffic(traffic), curlOut: DENIED_GOOGLE });
     assert.notEqual(r.status, 0, name + " accepted:\n" + r.out);
     assert.match(r.out, /FAIL canary must hold 0% traffic/, name);
     assert.ok(!r.calls.some((c) => c.includes("revisions describe")), name + ": canary logs read after failure");
+  }
+});
+
+const TWO_ENTRY_TRAFFIC = [
+  { percent: 100, revisionName: STABLE },
+  { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+];
+
+test("verify fails when IAP is not enabled on the service, even with a synthetic 401 on every path", () => {
+  const cases = {
+    "annotation absent": { metadata: {} },
+    "annotation false": { metadata: { annotations: { "run.googleapis.com/iap-enabled": "false" } } },
+    "annotation boolean true": { metadata: { annotations: { "run.googleapis.com/iap-enabled": true } } },
+    "metadata absent": {},
+  };
+  for (const [name, doc] of Object.entries(cases)) {
+    const r = runCanary(VERIFY_ARGS, {
+      serviceJson: JSON.stringify({ ...doc, status: { traffic: TWO_ENTRY_TRAFFIC } }),
+      curlOut: "401 ",
+    });
+    assert.notEqual(r.status, 0, name + " accepted:\n" + r.out);
+    assert.match(r.out, /IAP_NOT_PROVEN/, name);
+    assert.match(r.out, /FAIL service IAP annotation not proven/, name);
+    assert.match(r.out, /PASS anonymous \/ -> 401/, name); // the synthetic 401 is printed, but it is not accepted as IAP proof
+    assert.ok(!r.calls.some((c) => c.includes("revisions describe")), name + ": canary revision read after failed IAP check");
+    assert.ok(!r.calls.some((c) => c.startsWith("logging read")), name + ": logs read after failed IAP check");
+  }
+});
+
+test("verify fails closed when the tagged canary revision does not prove the owner-only guard", () => {
+  const cases = {
+    "guard 0": canaryRevisionJson({ env: guardEnv({ VELVETOS_REQUIRE_IAP: "0" }) }),
+    "guard missing": canaryRevisionJson({ env: guardEnv({ VELVETOS_REQUIRE_IAP: undefined }) }),
+    "audience mismatch": canaryRevisionJson({ env: guardEnv({ VELVETOS_IAP_AUDIENCE: AUD.replace("123456789012", "999999999999") }) }),
+    "allowlist mismatch": canaryRevisionJson({ env: guardEnv({ VELVETOS_IAP_ALLOWED_EMAILS: "other@example.test" }) }),
+    "allowlist missing": canaryRevisionJson({ env: guardEnv({ VELVETOS_IAP_ALLOWED_EMAILS: undefined }) }),
+    "duplicate guard name": canaryRevisionJson({ env: [...guardEnv(), { name: "VELVETOS_REQUIRE_IAP", value: "1" }] }),
+    "audience from secret ref": canaryRevisionJson({
+      env: [...guardEnv({ VELVETOS_IAP_AUDIENCE: undefined }), { name: "VELVETOS_IAP_AUDIENCE", valueFrom: { secretKeyRef: { name: "aud", key: "latest" } } }],
+    }),
+    "revision not Ready": canaryRevisionJson({ ready: "False" }),
+    "two containers": JSON.stringify({
+      spec: { containers: [{ env: guardEnv() }, { env: [] }] },
+      status: { conditions: [{ type: "Ready", status: "True" }] },
+    }),
+    "revision without containers": JSON.stringify({ spec: {}, status: { conditions: [{ type: "Ready", status: "True" }] } }),
+    "empty revision object": "{}",
+  };
+  for (const [name, revision] of Object.entries(cases)) {
+    const r = runCanary(VERIFY_ARGS, { serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE, revisionJson: revision });
+    assert.notEqual(r.status, 0, name + " accepted:\n" + r.out);
+    assert.match(r.out, /FAIL canary revision IAP guard not proven/, name);
+    assert.doesNotMatch(r.out, /PASS canary revision/, name);
+    assert.ok(!r.out.includes(OWNER) && !r.out.includes("other@example.test") && !r.out.includes("999999999999"),
+      name + ": a configured value leaked into output");
+    assert.ok(!r.calls.some((c) => c.startsWith("logging read")), name + ": logs read after failed revision guard");
+  }
+});
+
+test("verify fails closed when the canary revision cannot be read", () => {
+  const r = runCanary(VERIFY_ARGS, { serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE, revisionFail: true });
+  assert.notEqual(r.status, 0, r.out);
+  assert.match(r.out, /FAIL canary revision unreadable/);
+  assert.ok(!r.calls.some((c) => c.startsWith("logging read")), "logs read after revision lookup failed");
+});
+
+test("verify passes only with IAP on, an exact guard on the tagged revision, and 0% traffic", () => {
+  const r = runCanary(VERIFY_ARGS, { serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE });
+  assert.equal(r.status, 0, r.out);
+  assert.match(r.out, /PASS canary revision /);
+  assert.doesNotMatch(r.out, /FAIL|NOT_PROVEN|UNVERIFIABLE|NOT_ZERO/);
+  assert.ok(r.calls.some((c) => c.includes("revisions describe " + CANARY) && c.includes("--format=json")), "canary revision not described as JSON");
+  assert.ok(r.calls.some((c) => c.startsWith("logging read")), "logs not read after the guard passed");
+  assert.ok(!r.out.includes(AUD) && !r.out.includes(OWNER), "audience or owner leaked into output");
+  assert.match(r.out, /CONTROL PLANE/);
+  assert.match(r.out, /SYNTHETIC HTTP/);
+});
+
+test("verify refuses an explicit --tag-url that is a different valid run.app URL, before any curl or revision read", () => {
+  const OTHER_TAG_URL = "https://iapcanary---other-service-999999.me-west1.run.app";
+  const r = runCanary(["verify", "--tag-url", OTHER_TAG_URL, "--audience", AUD, "--allowed-emails", OWNER],
+    { serviceJson: serviceJson(0), curlOut: "401 " });
+  assert.notEqual(r.status, 0, r.out);
+  assert.match(r.out, /FAIL --tag-url does not match the service's tagged canary URL/);
+  assert.doesNotMatch(r.out, /PASS/);
+  assert.ok(!r.calls.some((c) => c.startsWith("curl ")), "curl ran against a URL the service does not own: " + r.calls.join(" | "));
+  assert.ok(!r.calls.some((c) => c.includes("revisions describe")), "canary revision read after URL mismatch");
+  assert.ok(!r.calls.some((c) => c.startsWith("logging read")), "logs read after URL mismatch");
+});
+
+test("verify fails closed before any curl when the service's tagged URL is missing, malformed or duplicated", () => {
+  const cases = {
+    "tagged entry without url": [
+      { percent: 100, revisionName: STABLE },
+      { percent: 0, revisionName: CANARY, tag: "iapcanary" },
+    ],
+    "tagged url on another tag": [
+      { percent: 100, revisionName: STABLE },
+      { percent: 0, revisionName: CANARY, tag: "iapcanary", url: "https://other---velvetos-control-center-staging-123456.me-west1.run.app" },
+    ],
+    "tagged url not run.app": [
+      { percent: 100, revisionName: STABLE },
+      { percent: 0, revisionName: CANARY, tag: "iapcanary", url: "https://example.test" },
+    ],
+    "two tagged entries": [
+      { percent: 0, revisionName: CANARY, tag: "iapcanary", url: TAG_URL },
+      { percent: 0, revisionName: STABLE, tag: "iapcanary", url: TAG_URL },
+    ],
+  };
+  const argSets = [
+    ["--audience", AUD, "--allowed-emails", OWNER],
+    ["--tag-url", TAG_URL, "--audience", AUD, "--allowed-emails", OWNER],
+  ];
+  for (const [name, traffic] of Object.entries(cases)) {
+    for (const extra of argSets) {
+      const r = runCanary(["verify", ...extra], { serviceJson: serviceJsonWithTraffic(traffic), curlOut: DENIED_GOOGLE });
+      const label = name + " with " + extra.join(" ");
+      assert.notEqual(r.status, 0, label + " accepted:\n" + r.out);
+      assert.match(r.out, /FAIL tagged canary URL not found/, label);
+      assert.ok(!r.calls.some((c) => c.startsWith("curl ")), label + ": curl ran: " + r.calls.join(" | "));
+      assert.ok(!r.calls.some((c) => c.includes("revisions describe")), label + ": canary revision read");
+      assert.ok(!r.calls.some((c) => c.startsWith("logging read")), label + ": logs read");
+    }
+  }
+});
+
+test("verify uses only the service's tagged URL when the explicit --tag-url matches it byte-for-byte", () => {
+  const r = runCanary(VERIFY_ARGS, { serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE });
+  assert.equal(r.status, 0, r.out);
+  const curls = r.calls.filter((c) => c.startsWith("curl "));
+  assert.equal(curls.length, 4, "expected four anonymous checks: " + curls.join(" | "));
+  for (const path of ["/", "/health", "/liveness", "/api/control/v1/snapshot"]) {
+    assert.ok(curls.some((c) => c.endsWith(TAG_URL + path)), "missing anonymous check for " + path);
+  }
+  assert.ok(curls.every((c) => c.includes(TAG_URL)), "anonymous check used another URL: " + curls.join(" | "));
+});
+
+test("verify requires an exact audience and owner allowlist before any gcloud call", () => {
+  const cases = [
+    ["--tag-url", TAG_URL],
+    ["--tag-url", TAG_URL, "--audience", AUD],
+    ["--tag-url", TAG_URL, "--allowed-emails", OWNER],
+    ["--tag-url", TAG_URL, "--audience", "/projects/123/locations/me-west1/services/other", "--allowed-emails", OWNER],
+    ["--tag-url", TAG_URL, "--audience", AUD, "--allowed-emails", "not-an-email"],
+    ["--tag-url", "https://example.test", "--audience", AUD, "--allowed-emails", OWNER],
+  ];
+  for (const args of cases) {
+    const r = runCanary(["verify", ...args], { serviceJson: serviceJson(0), curlOut: DENIED_GOOGLE });
+    assert.notEqual(r.status, 0, "accepted: " + args.join(" "));
+    assert.deepEqual(r.calls, [], "gcloud called for invalid verify input: " + args.join(" "));
   }
 });

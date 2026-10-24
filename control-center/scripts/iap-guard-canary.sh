@@ -14,7 +14,7 @@
 #   iap-guard-canary.sh plan      [options]   # default: print the full runbook
 #   iap-guard-canary.sh preflight [options]   # read-only gcloud facts (names only)
 #   iap-guard-canary.sh deploy    [options] [--apply]
-#   iap-guard-canary.sh verify    [options]   # anonymous checks against the tag URL
+#   iap-guard-canary.sh verify    --audience AUD --allowed-emails L [options]   # read-only gcloud proof + anonymous checks
 #   iap-guard-canary.sh rollback  [options] [--apply]
 #
 # Options:
@@ -25,7 +25,7 @@
 #   --image REF         image pinned by digest, e.g. gcr.io/instamcp/velvetos-control-center@sha256:<64 hex>
 #   --audience AUD      exact IAP audience: /projects/<NUMBER>/locations/<REGION>/services/<SERVICE>
 #   --allowed-emails L  required nonempty owner allowlist (lowercase emails)
-#   --tag-url URL       optional explicit tag URL for verify (otherwise read from gcloud)
+#   --tag-url URL       optional explicit tag URL for verify; must equal the service's tagged URL byte-for-byte
 #   --apply             actually run (deploy/rollback only)
 set -euo pipefail
 
@@ -70,10 +70,9 @@ done
 AUD_RE="^/projects/[0-9]+/locations/${REGION}/services/${SERVICE}\$"
 IMG_RE='^[a-z0-9.-]+(/[a-z0-9._-]+)+@sha256:[0-9a-f]{64}$'
 EMAIL_RE='^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$'
+TAG_URL_RE="^https://${TAG}---[a-z0-9.-]+\.run\.app\$"
 
-check_inputs() {
-  [[ -n "$IMAGE" ]] || die "--image is required (pinned by digest)"
-  [[ "$IMAGE" =~ $IMG_RE ]] || die "--image must be pinned by @sha256 digest"
+check_owner_inputs() {
   [[ -n "$AUDIENCE" ]] || die "--audience is required (observed or read from preflight, never invented)"
   [[ "$AUDIENCE" =~ $AUD_RE ]] || die "--audience must be /projects/<NUMBER>/locations/${REGION}/services/${SERVICE}"
   [[ -n "$ALLOWED_EMAILS" ]] || die "--allowed-emails is required for owner-only IAP"
@@ -81,6 +80,12 @@ check_inputs() {
   local e
   IFS=',' read -r -a _emails <<< "$ALLOWED_EMAILS"
   for e in "${_emails[@]}"; do [[ "$e" =~ $EMAIL_RE ]] || die "invalid email in --allowed-emails"; done
+}
+
+check_inputs() {
+  [[ -n "$IMAGE" ]] || die "--image is required (pinned by digest)"
+  [[ "$IMAGE" =~ $IMG_RE ]] || die "--image must be pinned by @sha256 digest"
+  check_owner_inputs
 }
 
 need_gcloud() { command -v gcloud >/dev/null 2>&1 || die "gcloud not found"; }
@@ -172,26 +177,52 @@ expect_denied() { # anonymous request must be refused by IAP (302 to Google sign
 }
 
 cmd_verify() {
-  if [[ -z "$TAG_URL" ]]; then
-    need_gcloud
-    TAG_URL="$(gcloud run services describe "$SERVICE" "${GC[@]}" --format=json |
-      python3 -c 'import json,sys; t=[x for x in json.load(sys.stdin)["status"].get("traffic",[]) if x.get("tag")==sys.argv[1]]; print(t[0]["url"] if t else "")' "$TAG")"
+  # Verify proves the guard from control-plane facts against explicit expectations, so the
+  # audience and owner allowlist are required here too; nothing is inferred from the template.
+  check_owner_inputs
+  if [[ -n "$TAG_URL" ]]; then
+    [[ "$TAG_URL" =~ $TAG_URL_RE ]] || die "--tag-url is not a ${TAG}--- run.app URL"
   fi
-  [[ "$TAG_URL" =~ ^https://${TAG}---[a-z0-9.-]+\.run\.app$ ]] || die "tag URL not found or not a ${TAG}--- run.app URL"
-  local fail=0 rev
-  for p in / /health /liveness /api/control/v1/snapshot; do expect_denied "$p" || fail=1; done
+  need_gcloud
+  local svc tr rev="" tag_url="" rjson fail=0 control_ok=1 url_ok=0
+  if ! svc="$(gcloud run services describe "$SERVICE" "${GC[@]}" --format=json)"; then
+    echo "FAIL service metadata unreadable"; return 1
+  fi
+  # Provider-side IAP: the service annotation must be exactly the string "true". Absent,
+  # disabled or unreadable metadata fails even when anonymous requests are refused, because
+  # a 401 from the app or a stale route says nothing about IAP.
+  if ! printf '%s' "$svc" | python3 -c '
+import json, sys
+def bad(why):
+    print("IAP_NOT_PROVEN " + why, file=sys.stderr)
+    sys.exit(1)
+try:
+    s = json.load(sys.stdin)
+except ValueError:
+    bad("service JSON unreadable")
+meta = s.get("metadata") if isinstance(s, dict) else None
+ann = meta.get("annotations") if isinstance(meta, dict) else None
+if not isinstance(ann, dict):
+    bad("metadata.annotations missing")
+if ann.get("run.googleapis.com/iap-enabled") != "true":
+    bad("run.googleapis.com/iap-enabled is absent, disabled or not the string true")
+'; then
+    echo "FAIL service IAP annotation not proven"; fail=1; control_ok=0
+  fi
   # Traffic is judged per canary REVISION, not per tagged entry: the same revision can be
   # served through an untagged entry. Missing, ambiguous or malformed traffic fails closed.
-  if ! command -v gcloud >/dev/null 2>&1; then
-    echo "FAIL canary traffic unverifiable (gcloud not found)"; fail=1
-  elif ! rev="$(gcloud run services describe "$SERVICE" "${GC[@]}" --format=json |
-      python3 -c '
+  if ! tr="$(printf '%s' "$svc" | python3 -c '
 import json, sys
 tag = sys.argv[1]
-traffic = json.load(sys.stdin)["status"].get("traffic")
 def unverifiable(why):
     print("TRAFFIC_UNVERIFIABLE " + why, file=sys.stderr)
     sys.exit(1)
+try:
+    s = json.load(sys.stdin)
+except ValueError:
+    unverifiable("service JSON unreadable")
+st = s.get("status") if isinstance(s, dict) else None
+traffic = st.get("traffic") if isinstance(st, dict) else None
 if not isinstance(traffic, list) or not traffic:
     unverifiable("traffic list missing or empty")
 for x in traffic:
@@ -213,18 +244,102 @@ if hot:
     sys.exit(1)
 print(rev)
 ' "$TAG")"; then
-    echo "FAIL canary must hold 0% traffic (or traffic lookup failed)"; fail=1
+    echo "FAIL canary must hold 0% traffic (or traffic lookup failed)"; fail=1; control_ok=0
   else
-    note "canary revision: ${rev}"
-    gcloud run revisions describe "$rev" "${GC[@]}" --format='value(status.conditions)'
+    rev="$tr"
+  fi
+  # The service's own unique tagged entry URL is the only URL the anonymous checks may use. It must
+  # match the TAG_URL shape and any explicit --tag-url byte-for-byte. A missing, duplicate, malformed
+  # or mismatched URL fails closed before any curl or revision/log read.
+  tag_url="$(printf '%s' "$svc" | python3 -c '
+import json, sys
+tag = sys.argv[1]
+try:
+    s = json.load(sys.stdin)
+except ValueError:
+    sys.exit(0)
+st = s.get("status") if isinstance(s, dict) else None
+traffic = st.get("traffic") if isinstance(st, dict) else None
+if not isinstance(traffic, list):
+    sys.exit(0)
+tagged = [x for x in traffic if isinstance(x, dict) and x.get("tag") == tag]
+if len(tagged) == 1 and isinstance(tagged[0].get("url"), str):
+    print(tagged[0]["url"])
+' "$TAG")"
+  if [[ "$tag_url" =~ $TAG_URL_RE ]]; then
+    if [[ -n "$TAG_URL" && "$TAG_URL" != "$tag_url" ]]; then
+      echo "FAIL --tag-url does not match the service's tagged canary URL"; fail=1; control_ok=0
+    else
+      TAG_URL="$tag_url"; url_ok=1
+    fi
+  else
+    echo "FAIL tagged canary URL not found or not a ${TAG}--- run.app URL"; fail=1; control_ok=0
+  fi
+  if [[ "$url_ok" -eq 1 ]]; then
+    for p in / /health /liveness /api/control/v1/snapshot; do expect_denied "$p" || fail=1; done
+  fi
+  # The ACTUAL tagged revision must carry the guard: exactly one container, Ready, one plain
+  # VELVETOS_REQUIRE_IAP=1, and exact audience and allowlist. Values are compared, never printed.
+  if [[ "$control_ok" -eq 1 ]]; then
+    if ! rjson="$(gcloud run revisions describe "$rev" "${GC[@]}" --format=json)"; then
+      echo "FAIL canary revision unreadable"; fail=1; control_ok=0
+    elif ! printf '%s' "$rjson" | python3 -c '
+import json, sys
+aud, emails = sys.argv[1], sys.argv[2]
+def bad(why):
+    print("REVISION_GUARD_NOT_PROVEN " + why, file=sys.stderr)
+    sys.exit(1)
+try:
+    r = json.load(sys.stdin)
+except ValueError:
+    bad("revision JSON unreadable")
+st = r.get("status") if isinstance(r, dict) else None
+conds = st.get("conditions") if isinstance(st, dict) else None
+if not isinstance(conds, list) or not any(isinstance(c, dict) and c.get("type") == "Ready" and c.get("status") == "True" for c in conds):
+    bad("Ready condition is not True")
+spec = r.get("spec") if isinstance(r, dict) else None
+containers = spec.get("containers") if isinstance(spec, dict) else None
+if not isinstance(containers, list) or len(containers) != 1 or not isinstance(containers[0], dict):
+    bad("revision must have exactly one container")
+envs = containers[0].get("env", [])
+if not isinstance(envs, list) or not all(isinstance(e, dict) and isinstance(e.get("name"), str) for e in envs):
+    bad("env list malformed")
+names = [e["name"] for e in envs]
+if len(names) != len(set(names)):
+    bad("duplicate env names")
+def plain(name):
+    hits = [e for e in envs if e["name"] == name]
+    if len(hits) != 1:
+        bad(name + " missing")
+    e = hits[0]
+    if "valueFrom" in e or not isinstance(e.get("value"), str):
+        bad(name + " is not a plain value")
+    return e["value"]
+if plain("VELVETOS_REQUIRE_IAP") != "1":
+    bad("VELVETOS_REQUIRE_IAP is not 1")
+if plain("VELVETOS_IAP_AUDIENCE") != aud:
+    bad("VELVETOS_IAP_AUDIENCE does not match --audience")
+if plain("VELVETOS_IAP_ALLOWED_EMAILS") != emails:
+    bad("VELVETOS_IAP_ALLOWED_EMAILS does not match --allowed-emails")
+' "$AUDIENCE" "$ALLOWED_EMAILS"; then
+      echo "FAIL canary revision IAP guard not proven"; fail=1; control_ok=0
+    else
+      echo "PASS canary revision ${rev}: Ready, guard=1, audience and owner allowlist exact (values not printed)"
+    fi
+  fi
+  # Logs are read only after every control-plane check has passed for this revision.
+  if [[ "$control_ok" -eq 1 ]]; then
     note "recent canary logs mentioning the guard (no request bodies):"
     gcloud logging read "resource.type=cloud_run_revision AND resource.labels.revision_name=${rev} AND (textPayload:iap_ OR severity>=ERROR)" \
       --project "$PROJECT" --limit 20 --freshness 1h --format='value(timestamp,severity,textPayload)' || true
   fi
   cat <<TXT
-# Anonymous checks above prove IAP refuses the tag URL. They do NOT prove the guard
-# accepts the owner. /liveness is answered only to Cloud Run's internal probe; the
-# revision being Ready with the liveness probe configured is the evidence for it.
+# Evidence classes (report them separately):
+#   CONTROL PLANE (read-only gcloud; values never printed): service IAP annotation is true,
+#     canary revision Ready, VELVETOS_REQUIRE_IAP=1, exact audience and owner allowlist, 0% traffic.
+#   SYNTHETIC HTTP (anonymous curl): a 401/403/302 only shows the tag URL refused an anonymous
+#     request. It does not prove provider IAP by itself and it is not owner acceptance.
+#   OWNER E2E (not run by this script): the Safari steps below.
 # OWNER STEP (Christian, Safari on iPhone and iPad, off-LAN):
 #   1. Open ${TAG_URL}/ and sign in through Google/IAP -> portal loads (200), data panels render.
 #   2. Open ${TAG_URL}/health -> JSON {"service":"velvetos-control-center","ready":true,...}.
@@ -262,7 +377,8 @@ cmd_plan() {
 # 1. Read-only facts:   $0 preflight
 # 2. Dry-run deploy:    $0 deploy --image <REF@sha256:...> --audience /projects/<NUMBER>/locations/${REGION}/services/${SERVICE} --allowed-emails <verified-owner-email>
 # 3. Apply (0% only):   CANARY_CONFIRM=deploy-no-traffic $0 deploy ... --apply
-# 4. Verify:            $0 verify     (anonymous denial + revision Ready + owner Safari steps)
+# 4. Verify:            $0 verify --audience <AUDIENCE> --allowed-emails <verified-owner-email>
+#                         (IAP annotation + canary revision guard + 0% traffic + anonymous denial; owner Safari steps)
 # 5. Rollback:          CANARY_CONFIRM=remove-tag $0 rollback --apply
 # Promotion is NOT part of this script and needs a separate reviewed gate.
 TXT
