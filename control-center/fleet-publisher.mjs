@@ -25,7 +25,10 @@ async function readBoundedJson(response) {
       if (done) break;
       bytes += value.byteLength;
       if (bytes > MAX_FLEET_RESPONSE_BYTES) {
-        await reader.cancel("oversized");
+        // The oversize denial must not wait for an uncooperative stream's cancel().
+        // Initiate teardown, but preserve the bounded failure even if it never settles.
+        try { void Promise.resolve(reader.cancel("oversized")).catch(() => {}); }
+        catch { /* best-effort cancellation may throw synchronously */ }
         throw new Error("canonical_fleet_response_oversized");
       }
       chunks.push(Buffer.from(value));
